@@ -1,20 +1,115 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/GUIForms/JPanel.java to edit this template
- */
 package com.smartoccupation.gui.paneles;
 
-/**
- *
- * @author alexf
- */
+import com.smartoccupation.modelo.Vivienda;
+import com.smartoccupation.servicios.ViviendaService;
+import com.smartoccupation.gui.dialog.ViviendaDialog;
+
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.util.List;
 public class ViviendaPanel extends javax.swing.JPanel {
 
-    /**
-     * Creates new form ViviendaPanel
-     */
+    private final ViviendaService viviendaService = new ViviendaService();
+    private DefaultTableModel modeloTabla;
+
     public ViviendaPanel() {
         initComponents();
+        inicializarTabla();
+        inicializarEventos();
+        cargarViviendas();
+    }
+    
+    private void inicializarTabla() {
+        // Columnas de la tabla
+        String[] columnas = {
+                "ID", "Código Referencia", "Dirección", "Provincia", "CP",
+                "Metros²", "Habitaciones", "Baños", "Precio (€)", "Estado"
+        };
+        modeloTabla = new DefaultTableModel(columnas, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false; // No editable directamente
+            }
+        };
+        tablaViviendas.setModel(modeloTabla);
+        tablaViviendas.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+    }
+    
+    private void inicializarEventos() {
+        btnNuevaVivienda.addActionListener(e -> abrirDialogo(null));
+        btnEditar.addActionListener(e -> {
+            Vivienda seleccionada = obtenerViviendaSeleccionada();
+            if (seleccionada != null) abrirDialogo(seleccionada);
+        });
+        btnEliminar.addActionListener(e -> eliminarVivienda());
+        btnActualizarLista.addActionListener(e -> cargarViviendas());
+    }
+    
+    private void cargarViviendas() {
+        List<Vivienda> lista = viviendaService.obtenerTodas();
+        modeloTabla.setRowCount(0); // Limpiar tabla
+        for (Vivienda v : lista) {
+            modeloTabla.addRow(new Object[]{
+                    v.getId_vivienda(),
+                    v.getCodigo_referencia(),
+                    v.getDireccion(),
+                    v.getProvincia(),
+                    v.getCodigo_postal(),
+                    v.getMetros_cuadrados(),
+                    v.getNumero_habitaciones(),
+                    v.getNumero_banios(),
+                    v.getPrecio_mensual(),
+                    v.getEstado()
+            });
+        }
+    }
+    
+    private Vivienda obtenerViviendaSeleccionada() {
+        int fila = tablaViviendas.getSelectedRow();
+        if (fila == -1) {
+            JOptionPane.showMessageDialog(this, "Seleccione una vivienda.", "Atención", JOptionPane.WARNING_MESSAGE);
+            return null;
+        }
+        int id = (int) modeloTabla.getValueAt(fila, 0);
+        return viviendaService.obtenerVivienda(id);
+    }
+    
+    private void abrirDialogo(Vivienda vivienda) {
+        Frame parent = (Frame) SwingUtilities.getWindowAncestor(this);
+        ViviendaDialog dialog;
+        if (vivienda == null) {
+            dialog = new ViviendaDialog(parent, true, viviendaService); // Nueva vivienda
+        } else {
+            dialog = new ViviendaDialog(parent, true, viviendaService, vivienda); // Editar existente
+        }
+        dialog.setLocationRelativeTo(parent);
+        dialog.setVisible(true);
+        cargarViviendas(); // Actualizar tabla después de cerrar diálogo
+    }
+    
+    private void eliminarVivienda() {
+        Vivienda seleccionada = obtenerViviendaSeleccionada();
+        if (seleccionada == null) return;
+
+        int confirm = JOptionPane.showConfirmDialog(this,
+                "¿Seguro que desea eliminar esta vivienda?",
+                "Confirmar eliminación",
+                JOptionPane.YES_NO_OPTION);
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            try {
+                boolean exito = viviendaService.eliminarVivienda(seleccionada.getId_vivienda());
+                if (exito) {
+                    JOptionPane.showMessageDialog(this, "Vivienda eliminada correctamente.");
+                    cargarViviendas();
+                } else {
+                    JOptionPane.showMessageDialog(this, "No se pudo eliminar la vivienda.", "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (IllegalStateException ex) {
+                JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        }
     }
 
     /**
@@ -26,19 +121,64 @@ public class ViviendaPanel extends javax.swing.JPanel {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
-        this.setLayout(layout);
-        layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 400, Short.MAX_VALUE)
-        );
-        layout.setVerticalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 300, Short.MAX_VALUE)
-        );
+        ScrollTabla = new javax.swing.JScrollPane();
+        tablaViviendas = new javax.swing.JTable();
+        panelTitulo = new javax.swing.JPanel();
+        jLabel1 = new javax.swing.JLabel();
+        panelBotones = new javax.swing.JPanel();
+        btnNuevaVivienda = new javax.swing.JButton();
+        btnEditar = new javax.swing.JButton();
+        btnEliminar = new javax.swing.JButton();
+        btnActualizarLista = new javax.swing.JButton();
+
+        setLayout(new java.awt.BorderLayout());
+
+        tablaViviendas.setModel(new javax.swing.table.DefaultTableModel(
+            new Object [][] {
+                {null, null, null, null, null, null, null, null, null, null},
+                {null, null, null, null, null, null, null, null, null, null},
+                {null, null, null, null, null, null, null, null, null, null},
+                {null, null, null, null, null, null, null, null, null, null}
+            },
+            new String [] {
+                "ID", "Código Referencia", "Dirección", "Provincia", "CP", "Metros²", "Habitaciones", "Baños", "Precio (€)", "Estado"
+            }
+        ));
+        ScrollTabla.setViewportView(tablaViviendas);
+
+        add(ScrollTabla, java.awt.BorderLayout.CENTER);
+
+        jLabel1.setText("Gestión Viviendas");
+        panelTitulo.add(jLabel1);
+
+        add(panelTitulo, java.awt.BorderLayout.PAGE_START);
+
+        btnNuevaVivienda.setText("Nueva Vivienda");
+        panelBotones.add(btnNuevaVivienda);
+
+        btnEditar.setText("Editar");
+        panelBotones.add(btnEditar);
+
+        btnEliminar.setText("Eliminar");
+        panelBotones.add(btnEliminar);
+
+        btnActualizarLista.setText("Actualizar Lista");
+        panelBotones.add(btnActualizarLista);
+
+        add(panelBotones, java.awt.BorderLayout.PAGE_END);
     }// </editor-fold>//GEN-END:initComponents
 
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JScrollPane ScrollTabla;
+    private javax.swing.JButton btnActualizarLista;
+    private javax.swing.JButton btnEditar;
+    private javax.swing.JButton btnEliminar;
+    private javax.swing.JButton btnNuevaVivienda;
+    private javax.swing.JLabel jLabel1;
+    private javax.swing.JScrollPane jScrollPane2;
+    private javax.swing.JPanel panelBotones;
+    private javax.swing.JPanel panelTitulo;
+    private javax.swing.JTable tablaViviendas;
     // End of variables declaration//GEN-END:variables
 }
