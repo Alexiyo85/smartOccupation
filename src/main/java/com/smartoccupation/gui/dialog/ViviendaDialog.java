@@ -2,140 +2,106 @@ package com.smartoccupation.gui.dialog;
 
 import com.smartoccupation.modelo.Vivienda;
 import com.smartoccupation.servicios.ViviendaService;
+import com.smartoccupation.gui.util.FormUtils;
 
 import javax.swing.*;
-import java.awt.*;
-import java.math.BigDecimal;
+import java.awt.*; // Necesario para Window y Dialog.ModalityType
 
-public class ViviendaDialog extends JDialog {
+public class ViviendaDialog extends BaseDialog {
 
     private final ViviendaService viviendaService;
     private Vivienda viviendaActual;
 
-    public ViviendaDialog(Frame parent, boolean modal, ViviendaService service) {
-        super(parent, modal);
-        this.viviendaService = service;
-        initComponents();
-        inicializarEventos();
+    // ===============================================================
+    // CONSTRUCTOR PRINCIPAL
+    // ===============================================================
+    public ViviendaDialog(Window parent, boolean modal, ViviendaService viviendaService) {
+        super(parent, modal ? Dialog.ModalityType.APPLICATION_MODAL : Dialog.ModalityType.MODELESS);
+        this.viviendaService = viviendaService;
+
+        initComponents(); // init limpio sin botones
     }
 
-    public ViviendaDialog(Frame parent, boolean modal, ViviendaService service, Vivienda vivienda) {
-        this(parent, modal, service);
+    // ===============================================================
+    // CONSTRUCTOR PARA EDICIÓN
+    // ===============================================================
+    public ViviendaDialog(Window parent, boolean modal, ViviendaService viviendaService, Vivienda vivienda) {
+        this(parent, modal, viviendaService);
         this.viviendaActual = vivienda;
-        cargarDatosVivienda(vivienda);
+        cargarVivienda(vivienda);
+        setTitle("Editar Vivienda");
     }
 
-    private void inicializarEventos() {
-        btnCancelar.addActionListener(e -> dispose());
+    public void cargarVivienda(Vivienda vivienda) {
+        this.viviendaActual = vivienda;
+        if (vivienda != null) {
+            txtCodigoReferencia.setText(vivienda.getCodigo_referencia());
+            txtDireccion.setText(vivienda.getDireccion());
+            txtCiudad.setText(vivienda.getCiudad());
+            txtProvincia.setText(vivienda.getProvincia());
+            txtCodigoPostal.setText(vivienda.getCodigo_postal());
 
-        btnGuardar.addActionListener(e -> {
-            if (validarCampos()) {
-                try {
-                    if (viviendaActual == null) {
-                        // Crear nueva vivienda
-                        Vivienda vNueva = obtenerViviendaDesdeCampos();
-                        viviendaService.crearVivienda(vNueva);
-                        JOptionPane.showMessageDialog(this, "Vivienda creada correctamente.");
-                    } else {
-                        // Editar existente
-                        actualizarViviendaDesdeCampos(viviendaActual);
-                        viviendaService.actualizarVivienda(viviendaActual);
-                        JOptionPane.showMessageDialog(this, "Vivienda actualizada correctamente.");
-                    }
-                    dispose();
-                } catch (IllegalArgumentException ex) {
-                    JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage(), "Error de validación", JOptionPane.ERROR_MESSAGE);
-                }
-            }
-        });
+            // Manejo seguro de números (si son 0 se ven como 0, si quieres vacío usa lógica condicional)
+            txtMetrosCuadrados.setText(String.valueOf(vivienda.getMetros_cuadrados()));
+            txtNumeroHabitaciones.setText(String.valueOf(vivienda.getNumero_habitaciones()));
+            txtNumeroBanios.setText(String.valueOf(vivienda.getNumero_banios()));
+            txtPrecioMensual.setText(String.valueOf(vivienda.getPrecio_mensual()));
+
+            cmbEstado.setSelectedItem(vivienda.getEstado());
+        }
     }
 
-    private void cargarDatosVivienda(Vivienda v) {
-        txtCodigoReferencia.setText(v.getCodigo_referencia());
-        txtDireccion.setText(v.getDireccion());
-        txtCiudad.setText(v.getCiudad());
-        txtProvincia.setText(v.getProvincia());
-        txtCodigoPostal.setText(v.getCodigo_postal());
-        txtMetrosCuadrados.setText(String.valueOf(v.getMetros_cuadrados()));
-        txtNumeroHabitaciones.setText(String.valueOf(v.getNumero_habitaciones()));
-        txtNumeroBanios.setText(String.valueOf(v.getNumero_banios()));
-        txtPrecioMensual.setText(v.getPrecio_mensual().toPlainString());
-        cmbEstado.setSelectedItem(v.getEstado());
-    }
-
-    private boolean validarCampos() {
-        // Verificar campos vacíos
-        if (txtCodigoReferencia.getText().trim().isEmpty()
-                || txtDireccion.getText().trim().isEmpty()
-                || txtCiudad.getText().trim().isEmpty()
-                || txtProvincia.getText().trim().isEmpty()
-                || txtCodigoPostal.getText().trim().isEmpty()
-                || txtMetrosCuadrados.getText().trim().isEmpty()
-                || txtNumeroHabitaciones.getText().trim().isEmpty()
-                || txtNumeroBanios.getText().trim().isEmpty()
-                || txtPrecioMensual.getText().trim().isEmpty()
-                || cmbEstado.getSelectedIndex() == -1) {
-
-            JOptionPane.showMessageDialog(this, "Todos los campos son obligatorios.", "Atención", JOptionPane.WARNING_MESSAGE);
+    @Override
+    protected boolean validarCampos() {
+        if (txtDireccion.getText().trim().isEmpty()) {
+            mostrarAdvertencia("La dirección es obligatoria.");
             return false;
         }
 
         try {
-            int metros = Integer.parseInt(txtMetrosCuadrados.getText());
-            int habitaciones = Integer.parseInt(txtNumeroHabitaciones.getText());
-            int banios = Integer.parseInt(txtNumeroBanios.getText());
-            BigDecimal precio = new BigDecimal(txtPrecioMensual.getText());
-
-            if (metros < 0 || habitaciones < 0 || banios < 0 || precio.compareTo(BigDecimal.ZERO) < 0) {
-                JOptionPane.showMessageDialog(this, "Los valores numéricos no pueden ser negativos.", "Error", JOptionPane.ERROR_MESSAGE);
-                return false;
-            }
-
-            if (!txtCodigoPostal.getText().matches("\\d+")) {
-                JOptionPane.showMessageDialog(this, "El código postal solo puede contener números.", "Error", JOptionPane.ERROR_MESSAGE);
-                return false;
-            }
-
-            String estado = cmbEstado.getSelectedItem().toString().toLowerCase();
-            if (!estado.equals("disponible") && !estado.equals("reservado") && !estado.equals("ocupado")) {
-                JOptionPane.showMessageDialog(this, "Estado inválido.", "Error", JOptionPane.ERROR_MESSAGE);
-                return false;
-            }
-
-        } catch (NumberFormatException ex) {
-            JOptionPane.showMessageDialog(this, "Campos numéricos inválidos.", "Error", JOptionPane.ERROR_MESSAGE);
+            // Validamos formatos usando FormUtils
+            FormUtils.parseBigDecimal(txtPrecioMensual.getText(), "precio mensual");
+            FormUtils.parseInt(txtMetrosCuadrados.getText(), "metros cuadrados");
+            FormUtils.parseInt(txtNumeroHabitaciones.getText(), "número de habitaciones");
+            FormUtils.parseInt(txtNumeroBanios.getText(), "número de baños");
+            return true;
+        } catch (IllegalArgumentException ex) {
+            mostrarAdvertencia(ex.getMessage()); // Usamos método de BaseDialog
             return false;
         }
-
-        return true;
     }
 
-    private Vivienda obtenerViviendaDesdeCampos() {
-        Vivienda v = new Vivienda();
-        v.setCodigo_referencia(txtCodigoReferencia.getText());
-        v.setDireccion(txtDireccion.getText());
-        v.setCiudad(txtCiudad.getText());
-        v.setProvincia(txtProvincia.getText());
-        v.setCodigo_postal(txtCodigoPostal.getText());
-        v.setMetros_cuadrados(Integer.parseInt(txtMetrosCuadrados.getText()));
-        v.setNumero_habitaciones(Integer.parseInt(txtNumeroHabitaciones.getText()));
-        v.setNumero_banios(Integer.parseInt(txtNumeroBanios.getText()));
-        v.setPrecio_mensual(new BigDecimal(txtPrecioMensual.getText()));
-        v.setEstado(cmbEstado.getSelectedItem().toString());
-        return v;
-    }
+    @Override
+    protected void guardarEntidad() throws Exception {
+        if (viviendaActual == null) {
+            viviendaActual = new Vivienda();
+        }
 
-    private void actualizarViviendaDesdeCampos(Vivienda v) {
-        v.setCodigo_referencia(txtCodigoReferencia.getText());
-        v.setDireccion(txtDireccion.getText());
-        v.setCiudad(txtCiudad.getText());
-        v.setProvincia(txtProvincia.getText());
-        v.setCodigo_postal(txtCodigoPostal.getText());
-        v.setMetros_cuadrados(Integer.parseInt(txtMetrosCuadrados.getText()));
-        v.setNumero_habitaciones(Integer.parseInt(txtNumeroHabitaciones.getText()));
-        v.setNumero_banios(Integer.parseInt(txtNumeroBanios.getText()));
-        v.setPrecio_mensual(new BigDecimal(txtPrecioMensual.getText()));
-        v.setEstado(cmbEstado.getSelectedItem().toString());
+        viviendaActual.setCodigo_referencia(txtCodigoReferencia.getText().trim());
+        viviendaActual.setDireccion(txtDireccion.getText().trim());
+        viviendaActual.setCiudad(txtCiudad.getText().trim());
+        viviendaActual.setProvincia(txtProvincia.getText().trim());
+        viviendaActual.setCodigo_postal(txtCodigoPostal.getText().trim());
+
+        viviendaActual.setMetros_cuadrados(FormUtils.parseInt(txtMetrosCuadrados.getText(), "metros cuadrados"));
+        viviendaActual.setNumero_habitaciones(FormUtils.parseInt(txtNumeroHabitaciones.getText(), "número de habitaciones"));
+        viviendaActual.setNumero_banios(FormUtils.parseInt(txtNumeroBanios.getText(), "número de baños"));
+        viviendaActual.setPrecio_mensual(FormUtils.parseBigDecimal(txtPrecioMensual.getText(), "precio mensual"));
+        viviendaActual.setEstado((String) cmbEstado.getSelectedItem());
+
+        // Asumimos lógica estándar: ID <= 0 es crear, ID > 0 es actualizar
+        // Nota: Si ViviendaService no tiene actualizarVivienda, usa solo crearVivienda,
+        // pero idealmente deberías tener ambos.
+        if (viviendaActual.getId_vivienda() <= 0) {
+            boolean exito = viviendaService.crearVivienda(viviendaActual);
+            if (!exito) {
+                throw new Exception("No se pudo crear la vivienda.");
+            }
+        } else {
+            // Asumiendo que existe actualizarVivienda. Si no existe, descomenta la línea de crear y comenta esta.
+            // viviendaService.crearVivienda(viviendaActual); 
+            viviendaService.actualizarVivienda(viviendaActual);
+        }
     }
 
     @SuppressWarnings("unchecked")

@@ -8,8 +8,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * DAO para la tabla "estados_cobro".
- * Permite gestionar los estados de cobro de los alquileres.
+ * DAO para la tabla "estados_cobro". Permite gestionar los estados de cobro de
+ * los alquileres.
  */
 public class EstadoCobroDAO {
 
@@ -19,8 +19,7 @@ public class EstadoCobroDAO {
     public boolean insertar(EstadoCobro estado) {
         String sql = "INSERT INTO estados_cobro (nombre_estado) VALUES (?)";
 
-        try (Connection conn = ConexionBBDD.conectar();
-             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (Connection conn = ConexionBBDD.conectar(); PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
             ps.setString(1, estado.getNombre_estado());
 
@@ -47,8 +46,7 @@ public class EstadoCobroDAO {
         String sql = "SELECT * FROM estados_cobro WHERE id_estado = ?";
         EstadoCobro estado = null;
 
-        try (Connection conn = ConexionBBDD.conectar();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = ConexionBBDD.conectar(); PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, idEstado);
             try (ResultSet rs = ps.executeQuery()) {
@@ -71,8 +69,7 @@ public class EstadoCobroDAO {
         String sql = "SELECT * FROM estados_cobro WHERE nombre_estado = ?";
         EstadoCobro estado = null;
 
-        try (Connection conn = ConexionBBDD.conectar();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = ConexionBBDD.conectar(); PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setString(1, nombre);
             try (ResultSet rs = ps.executeQuery()) {
@@ -95,9 +92,7 @@ public class EstadoCobroDAO {
         String sql = "SELECT * FROM estados_cobro";
         List<EstadoCobro> lista = new ArrayList<>();
 
-        try (Connection conn = ConexionBBDD.conectar();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+        try (Connection conn = ConexionBBDD.conectar(); Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery(sql)) {
 
             while (rs.next()) {
                 lista.add(mapearEstado(rs));
@@ -118,5 +113,44 @@ public class EstadoCobroDAO {
         estado.setId_estado(rs.getInt("id_estado"));
         estado.setNombre_estado(rs.getString("nombre_estado"));
         return estado;
+    }
+
+    // Código agregado a EstadoCobroDAO.java
+    // -------------------------------
+    // Actualizar estado existente
+    // -------------------------------
+    public boolean actualizar(EstadoCobro estado) {
+        String sql = "UPDATE estados_cobro SET nombre_estado = ? WHERE id_estado = ?";
+
+        try (Connection conn = ConexionBBDD.conectar(); PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setString(1, estado.getNombre_estado());
+            ps.setInt(2, estado.getId_estado());
+
+            return ps.executeUpdate() > 0;
+
+        } catch (SQLException e) {
+            System.out.println("Error al actualizar estado de cobro: " + e.getMessage());
+            return false;
+        }
+    }
+
+    // -------------------------------
+    // Eliminar estado por ID
+    // -------------------------------
+    public boolean eliminar(int idEstado) {
+        String sql = "DELETE FROM estados_cobro WHERE id_estado = ?";
+
+        try (Connection conn = ConexionBBDD.conectar(); PreparedStatement ps = conn.prepareStatement(sql)) {
+
+            ps.setInt(1, idEstado);
+
+            return ps.executeUpdate() > 0;
+
+        } catch (SQLException e) {
+            System.out.println("Error al eliminar estado de cobro: " + e.getMessage());
+            // Se propaga la excepción para que el panel pueda notificar si hay un error de FK
+            throw new RuntimeException("No se puede eliminar el estado de cobro. Posiblemente esté siendo usado en un alquiler.", e);
+        }
     }
 }

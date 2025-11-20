@@ -47,4 +47,13 @@ public class PagoService {
     public boolean eliminarPago(int idPago) {
         return pagoDAO.eliminar(idPago);
     }
+
+    public List<Pago> listarTodosLosPagos() {
+        return pagoDAO.obtenerTodos();
+    }
+
+    public List<Pago> buscarPagosPorFecha(LocalDate desde, LocalDate hasta) {
+        return pagoDAO.obtenerPorRangoFechas(desde, hasta);
+    }
+
 }

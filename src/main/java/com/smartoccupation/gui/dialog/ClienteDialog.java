@@ -2,104 +2,90 @@ package com.smartoccupation.gui.dialog;
 
 import com.smartoccupation.modelo.Cliente;
 import com.smartoccupation.servicios.ClienteService;
+import com.smartoccupation.gui.util.FormUtils;
 
 import javax.swing.*;
 import java.awt.*;
 
-/**
- * Diálogo para crear o editar un cliente. Funciona con ClienteService para
- * persistir los cambios en la base de datos.
- */
-public class ClienteDialog extends JDialog {
+public class ClienteDialog extends BaseDialog {
 
     private final ClienteService clienteService;
-    private Cliente cliente; // Si es null → crear nuevo, si no → editar existente
+    private Cliente clienteActual;
 
-    /**
-     * Constructor para crear un cliente nuevo
-     */
-    public ClienteDialog(Frame parent, boolean modal, ClienteService clienteService) {
-        super(parent, modal);
+    // Constructor Crear
+    public ClienteDialog(Window parent, boolean modal, ClienteService clienteService) {
+        // Usamos el nuevo constructor de BaseDialog
+        super(parent, modal ? Dialog.ModalityType.APPLICATION_MODAL : Dialog.ModalityType.MODELESS);
         this.clienteService = clienteService;
-        this.cliente = null; // Nuevo cliente
         initComponents();
-        setTitle("Nuevo Cliente");
-        inicializarEventos();
+        // NO LLAMAMOS A configurarEventos() PORQUE BASEDIALOG YA GESTIONA LOS BOTONES
     }
 
-    /**
-     * Constructor para editar un cliente existente
-     */
-    public ClienteDialog(Frame parent, boolean modal, ClienteService clienteService, Cliente cliente) {
-        super(parent, modal);
-        this.clienteService = clienteService;
-        this.cliente = cliente;
-        initComponents();
+    // Constructor Editar
+    public ClienteDialog(Window parent, boolean modal, ClienteService clienteService, Cliente cliente) {
+        this(parent, modal, clienteService);
+        this.clienteActual = cliente;
+        cargarCliente(cliente);
         setTitle("Editar Cliente");
-        cargarClienteEnCampos();
-        inicializarEventos(); // Registrar eventos de botones
     }
 
-    /**
-     * Cargar los datos de cliente existente en los campos de texto
-     */
-    private void cargarClienteEnCampos() {
-        if (cliente == null) return;
+    // El método cargarCliente se mantiene igual...
+    public void cargarCliente(Cliente cliente) {
+        this.clienteActual = cliente;
+        txtNombre.setText(cliente.getNombre() != null ? cliente.getNombre() : "");
+        txtApellido1.setText(cliente.getPrimer_apellido() != null ? cliente.getPrimer_apellido() : "");
+        txtApellido2.setText(cliente.getSegundo_apellido() != null ? cliente.getSegundo_apellido() : "");
+        txtDni.setText(cliente.getDni() != null ? cliente.getDni() : "");
+        txtCiudad.setText(cliente.getCiudad() != null ? cliente.getCiudad() : "");
+        txtProvincia.setText(cliente.getProvincia() != null ? cliente.getProvincia() : "");
+        txtEmail.setText(cliente.getEmail() != null ? cliente.getEmail() : "");
+        txtTelefono.setText(cliente.getTelefono() != null ? cliente.getTelefono() : "");
+    }
 
-        txtNombre.setText(cliente.getNombre());
-        txtApellido1.setText(cliente.getPrimer_apellido());
-        txtApellido2.setText(cliente.getSegundo_apellido());
-        txtDni.setText(cliente.getDni());
-        txtTelefono.setText(cliente.getTelefono());
-        txtEmail.setText(cliente.getEmail());
-        txtCiudad.setText(cliente.getCiudad());
-        txtProvincia.setText(cliente.getProvincia());
-    }
-    
-    /**
-     * Registrar ActionListeners de botones
-     */
-    private void inicializarEventos() {
-        btnCancelar.addActionListener(e -> dispose()); // Cierra el diálogo
-        btnGuardar.addActionListener(e -> guardarCliente()); // Guarda el cliente
-    }
-    
-    
-    /**
-     * Guardar o actualizar el cliente usando ClienteService
-     */
-    private void guardarCliente() {
+    @Override
+    protected boolean validarCampos() {
+        // Se mantiene igual, pero usamos el método del padre para mostrar advertencias si quieres
         try {
-            if (cliente == null) {
-                cliente = new Cliente();
+            if (txtNombre.getText().trim().isEmpty()) {
+                throw new IllegalArgumentException("Falta nombre.");
             }
-
-            // Asignar valores desde los campos de texto
-            cliente.setNombre(txtNombre.getText());
-            cliente.setPrimer_apellido(txtApellido1.getText());
-            cliente.setSegundo_apellido(txtApellido2.getText());
-            cliente.setDni(txtDni.getText());
-            cliente.setTelefono(txtTelefono.getText());
-            cliente.setEmail(txtEmail.getText());
-            cliente.setCiudad(txtCiudad.getText());
-            cliente.setProvincia(txtProvincia.getText());
-
-            // Persistir el cliente según si es nuevo o existente
-            if (cliente.getId_cliente() == 0) {
-                clienteService.crearCliente(cliente);
-            } else {
-                clienteService.actualizarCliente(cliente);
+            if (txtApellido1.getText().trim().isEmpty()) {
+                throw new IllegalArgumentException("Falta primer apellido.");
             }
-
-            JOptionPane.showMessageDialog(this, "Cliente guardado correctamente.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
-            dispose(); // Cierra el diálogo al guardar
+            if (txtDni.getText().trim().isEmpty()) {
+                throw new IllegalArgumentException("Falta DNI.");
+            }
+            if (!txtEmail.getText().trim().isEmpty()) {
+                FormUtils.validarEmail(txtEmail.getText().trim());
+            }
+            return true;
         } catch (IllegalArgumentException ex) {
-            // Mostrar errores de validación
-            JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            mostrarAdvertencia(ex.getMessage()); // Método heredado de BaseDialog
+            return false;
         }
     }
 
+    @Override
+    protected void guardarEntidad() throws Exception {
+        // Lógica de negocio pura. No gestiona el dispose ni try-catch, eso lo hace el padre.
+        if (clienteActual == null) {
+            clienteActual = new Cliente();
+        }
+        clienteActual.setNombre(txtNombre.getText().trim());
+        clienteActual.setPrimer_apellido(txtApellido1.getText().trim());
+        clienteActual.setSegundo_apellido(txtApellido2.getText().trim().isEmpty() ? null : txtApellido2.getText().trim());
+        clienteActual.setDni(txtDni.getText().trim());
+        clienteActual.setCiudad(txtCiudad.getText().trim());
+        clienteActual.setProvincia(txtProvincia.getText().trim());
+        clienteActual.setEmail(txtEmail.getText().trim().isEmpty() ? null : txtEmail.getText().trim());
+        clienteActual.setTelefono(txtTelefono.getText().trim().isEmpty() ? null : txtTelefono.getText().trim());
 
+        if (clienteActual.getId_cliente() <= 0) {
+            clienteService.crearCliente(clienteActual);
+        } else {
+            clienteService.actualizarCliente(clienteActual);
+        }
+    }
 
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
@@ -317,17 +303,6 @@ public class ClienteDialog extends JDialog {
     private void txtTelefonoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtTelefonoActionPerformed
         // TODO add your handling code here:
     }//GEN-LAST:event_txtTelefonoActionPerformed
-
-    /**
-     * @param args the command line arguments
-     */
-    public static void main(String args[]) {
-        ClienteService clienteService = new ClienteService(); // o un mock
-        java.awt.EventQueue.invokeLater(() -> {
-            ClienteDialog dialog = new ClienteDialog(new javax.swing.JFrame(), true, clienteService);
-            dialog.setVisible(true);
-        });
-    }
 
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

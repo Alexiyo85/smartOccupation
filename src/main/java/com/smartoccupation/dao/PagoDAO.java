@@ -10,8 +10,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * DAO para la tabla "pagos".
- * Contiene métodos CRUD y consultas específicas para pagos asociados a alquileres.
+ * DAO para la tabla "pagos". Contiene métodos CRUD y consultas específicas para
+ * pagos asociados a alquileres.
  */
 public class PagoDAO {
 
@@ -20,8 +20,7 @@ public class PagoDAO {
     // -------------------------------
     public boolean insertar(Pago pago) {
         String sql = "INSERT INTO pagos (numero_expediente, fecha_pago, cantidad) VALUES (?, ?, ?)";
-        try (Connection conn = ConexionBBDD.conectar();
-             PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        try (Connection conn = ConexionBBDD.conectar(); PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
             ps.setInt(1, pago.getNumero_expediente());
             ps.setDate(2, Date.valueOf(pago.getFecha_pago()));
@@ -51,8 +50,7 @@ public class PagoDAO {
         String sql = "SELECT * FROM pagos WHERE numero_expediente = ?";
         List<Pago> lista = new ArrayList<>();
 
-        try (Connection conn = ConexionBBDD.conectar();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = ConexionBBDD.conectar(); PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, numeroExpediente);
             try (ResultSet rs = ps.executeQuery()) {
@@ -75,8 +73,7 @@ public class PagoDAO {
         String sql = "SELECT * FROM pagos WHERE fecha_pago BETWEEN ? AND ?";
         List<Pago> lista = new ArrayList<>();
 
-        try (Connection conn = ConexionBBDD.conectar();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = ConexionBBDD.conectar(); PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setDate(1, Date.valueOf(desde));
             ps.setDate(2, Date.valueOf(hasta));
@@ -101,14 +98,15 @@ public class PagoDAO {
         String sql = "SELECT SUM(cantidad) AS total FROM pagos WHERE numero_expediente = ?";
         BigDecimal total = BigDecimal.ZERO;
 
-        try (Connection conn = ConexionBBDD.conectar();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = ConexionBBDD.conectar(); PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, numeroExpediente);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     total = rs.getBigDecimal("total");
-                    if (total == null) total = BigDecimal.ZERO;
+                    if (total == null) {
+                        total = BigDecimal.ZERO;
+                    }
                 }
             }
 
@@ -125,8 +123,7 @@ public class PagoDAO {
     public boolean eliminar(int idPago) {
         String sql = "DELETE FROM pagos WHERE id_pago = ?";
 
-        try (Connection conn = ConexionBBDD.conectar();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (Connection conn = ConexionBBDD.conectar(); PreparedStatement ps = conn.prepareStatement(sql)) {
 
             ps.setInt(1, idPago);
             return ps.executeUpdate() > 0;
@@ -148,4 +145,25 @@ public class PagoDAO {
         pago.setCantidad(rs.getBigDecimal("cantidad"));
         return pago;
     }
+
+    // -------------------------------
+    // Obtener todos los pagos
+    // -------------------------------
+    public List<Pago> obtenerTodos() {
+        String sql = "SELECT * FROM pagos ORDER BY fecha_pago DESC";
+        List<Pago> lista = new ArrayList<>();
+
+        try (Connection conn = ConexionBBDD.conectar(); PreparedStatement ps = conn.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                lista.add(mapearPago(rs));
+            }
+
+        } catch (SQLException e) {
+            System.out.println("Error al obtener todos los pagos: " + e.getMessage());
+        }
+
+        return lista;
+    }
+
 }

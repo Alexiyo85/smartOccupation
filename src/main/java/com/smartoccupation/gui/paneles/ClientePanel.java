@@ -6,15 +6,16 @@ import com.smartoccupation.modelo.Cliente;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+import java.awt.*;
 import java.util.List;
 
 public class ClientePanel extends javax.swing.JPanel {
 
     private final ClienteService clienteService;
 
-    // ============================
-    //       CONSTRUCTOR
-    // ============================
+// ============================
+//        CONSTRUCTOR
+// ============================
     public ClientePanel(ClienteService clienteService) {
         this.clienteService = clienteService;
         initComponents();
@@ -22,9 +23,9 @@ public class ClientePanel extends javax.swing.JPanel {
         configurarEventos();
     }
 
-    // ===========================================
-    //  CARGA LA TABLA CON LOS CLIENTES EXISTENTES
-    // ===========================================
+// ===========================================
+//  CARGA LA TABLA CON LOS CLIENTES EXISTENTES
+// ===========================================
     private void cargarTablaClientes() {
 
         List<Cliente> lista = clienteService.obtenerTodos();
@@ -49,23 +50,35 @@ public class ClientePanel extends javax.swing.JPanel {
             datos[i][8] = c.getProvincia();
         }
 
-        tablaClientes.setModel(new DefaultTableModel(datos, columnas));
+        // Evitamos que la tabla sea editable directamente
+        tablaClientes.setModel(new DefaultTableModel(datos, columnas) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        });
     }
 
-    // ============================================
-    //      CONFIGURACIÓN DE LOS BOTONES
-    // ============================================
+// ============================================
+//       CONFIGURACIÓN DE LOS BOTONES
+// ============================================
     private void configurarEventos() {
 
         // BOTÓN AÑADIR
-        btnAñadirCliente.addActionListener(e -> {
-            ClienteDialog dialogo = new ClienteDialog(null, true, clienteService);
-            dialogo.setVisible(true);
-            cargarTablaClientes();
-        });
+        btnAñadirCliente.addActionListener(e -> abrirDialogoCliente(null));
 
         // BOTÓN EDITAR
-        btnEditarCliente.addActionListener(e -> editarCliente());
+        btnEditarCliente.addActionListener(e -> {
+            int fila = tablaClientes.getSelectedRow();
+            if (fila == -1) {
+                JOptionPane.showMessageDialog(this, "Seleccione un cliente.", "Aviso", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            // ID está en la columna 0
+            int id = (int) tablaClientes.getValueAt(fila, 0);
+            Cliente cliente = clienteService.obtenerCliente(id);
+            abrirDialogoCliente(cliente);
+        });
 
         // BOTÓN ELIMINAR
         btnEliminarCliente.addActionListener(e -> eliminarCliente());
@@ -76,65 +89,73 @@ public class ClientePanel extends javax.swing.JPanel {
             public void insertUpdate(javax.swing.event.DocumentEvent e) {
                 filtrarTabla();
             }
+
             public void removeUpdate(javax.swing.event.DocumentEvent e) {
                 filtrarTabla();
             }
+
             public void changedUpdate(javax.swing.event.DocumentEvent e) {
                 filtrarTabla();
             }
         });
     }
 
-    // ===========================
-    //     FILTRO DE BÚSQUEDA
-    // ===========================
+// ===========================
+//      FILTRO DE BÚSQUEDA
+// ===========================
     private void filtrarTabla() {
+        // Nota: Un filtro manual simple. Para tablas grandes usar TableRowSorter es mejor.
         String busqueda = txtBuscarCliente.getText().trim().toLowerCase();
-
         DefaultTableModel modelo = (DefaultTableModel) tablaClientes.getModel();
 
+        // Restablecemos el alto de todas las filas antes de filtrar (si usamos el truco de ocultar)
+        // Nota: Ocultar filas con setRowHeight es un "truco" visual pero no quita los datos del modelo.
+        // Si la tabla es pequeña funciona, pero idealmente usarías un TableRowSorter.
         for (int i = 0; i < modelo.getRowCount(); i++) {
             boolean coincide = false;
-
-            for (int j = 1; j < modelo.getColumnCount(); j++) {
-                Object celda = modelo.getValueAt(i, j);
-                if (celda != null && celda.toString().toLowerCase().contains(busqueda)) {
-                    coincide = true;
-                    break;
+            // Si la búsqueda está vacía, mostrar todo
+            if (busqueda.isEmpty()) {
+                coincide = true;
+            } else {
+                for (int j = 1; j < modelo.getColumnCount(); j++) {
+                    Object celda = modelo.getValueAt(i, j);
+                    if (celda != null && celda.toString().toLowerCase().contains(busqueda)) {
+                        coincide = true;
+                        break;
+                    }
                 }
             }
-
             tablaClientes.setRowHeight(i, coincide ? 20 : 0);
         }
     }
 
-    // ===========================
-    //    EDITAR CLIENTE
-    // ===========================
-    private void editarCliente() {
+// ===========================
+//    ABRIR DIÁLOGO CLIENTE
+// ===========================
+    private void abrirDialogoCliente(Cliente cliente) {
+        // Obtenemos la ventana padre (sea JFrame o JDialog)
+        Window parent = SwingUtilities.getWindowAncestor(this);
 
-        int fila = tablaClientes.getSelectedRow();
+        ClienteDialog dialog;
 
-        if (fila == -1) {
-            JOptionPane.showMessageDialog(this, "Seleccione un cliente.", "Aviso", JOptionPane.WARNING_MESSAGE);
-            return;
+        // El constructor de ClienteDialog ahora acepta Window, así que esto es seguro
+        if (cliente == null) {
+            dialog = new ClienteDialog(parent, true, clienteService);
+        } else {
+            dialog = new ClienteDialog(parent, true, clienteService, cliente);
         }
 
-        int id = (int) tablaClientes.getValueAt(fila, 0);
+        dialog.setLocationRelativeTo(parent);
+        dialog.setVisible(true);
 
-        Cliente cliente = clienteService.obtenerCliente(id);
-
-        ClienteDialog dialogo = new ClienteDialog(null, true, clienteService, cliente);
-        dialogo.setVisible(true);
-
+        // Recargar la tabla al cerrar el diálogo
         cargarTablaClientes();
     }
 
-    // ===========================
-    //    ELIMINAR CLIENTE
-    // ===========================
+// ===========================
+//     ELIMINAR CLIENTE
+// ===========================
     private void eliminarCliente() {
-
         int fila = tablaClientes.getSelectedRow();
 
         if (fila == -1) {
@@ -144,10 +165,13 @@ public class ClientePanel extends javax.swing.JPanel {
 
         int id = (int) tablaClientes.getValueAt(fila, 0);
 
+        // Confirmación un poco más detallada
+        String nombre = (String) tablaClientes.getValueAt(fila, 1);
+
         int confirm = JOptionPane.showConfirmDialog(
                 this,
-                "¿Eliminar el cliente seleccionado?",
-                "Confirmación",
+                "¿Está seguro de eliminar al cliente: " + nombre + "?",
+                "Confirmar eliminación",
                 JOptionPane.YES_NO_OPTION
         );
 
@@ -155,16 +179,13 @@ public class ClientePanel extends javax.swing.JPanel {
             try {
                 clienteService.eliminarCliente(id);
                 cargarTablaClientes();
+                JOptionPane.showMessageDialog(this, "Cliente eliminado correctamente.");
             } catch (Exception e) {
-                JOptionPane.showMessageDialog(this, e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Error al eliminar: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
 
-    // ----------------------------------------------------------
-    // Código generado por NetBeans (NO MODIFICAR)
-    // ---------------------------------------------------------*
-     
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {

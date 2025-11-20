@@ -8,23 +8,25 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.util.List;
+
 public class ViviendaPanel extends javax.swing.JPanel {
 
-    private final ViviendaService viviendaService = new ViviendaService();
+    private final ViviendaService viviendaService;
     private DefaultTableModel modeloTabla;
 
-    public ViviendaPanel() {
+    public ViviendaPanel(ViviendaService viviendaService) {
+        this.viviendaService = viviendaService;
         initComponents();
         inicializarTabla();
         inicializarEventos();
         cargarViviendas();
     }
-    
+
     private void inicializarTabla() {
         // Columnas de la tabla
         String[] columnas = {
-                "ID", "Código Referencia", "Dirección", "Provincia", "CP",
-                "Metros²", "Habitaciones", "Baños", "Precio (€)", "Estado"
+            "ID", "Código Referencia", "Dirección", "Provincia", "CP",
+            "Metros²", "Habitaciones", "Baños", "Precio (€)", "Estado"
         };
         modeloTabla = new DefaultTableModel(columnas, 0) {
             @Override
@@ -35,36 +37,38 @@ public class ViviendaPanel extends javax.swing.JPanel {
         tablaViviendas.setModel(modeloTabla);
         tablaViviendas.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
     }
-    
+
     private void inicializarEventos() {
         btnNuevaVivienda.addActionListener(e -> abrirDialogo(null));
         btnEditar.addActionListener(e -> {
             Vivienda seleccionada = obtenerViviendaSeleccionada();
-            if (seleccionada != null) abrirDialogo(seleccionada);
+            if (seleccionada != null) {
+                abrirDialogo(seleccionada);
+            }
         });
         btnEliminar.addActionListener(e -> eliminarVivienda());
         btnActualizarLista.addActionListener(e -> cargarViviendas());
     }
-    
+
     private void cargarViviendas() {
         List<Vivienda> lista = viviendaService.obtenerTodas();
         modeloTabla.setRowCount(0); // Limpiar tabla
         for (Vivienda v : lista) {
             modeloTabla.addRow(new Object[]{
-                    v.getId_vivienda(),
-                    v.getCodigo_referencia(),
-                    v.getDireccion(),
-                    v.getProvincia(),
-                    v.getCodigo_postal(),
-                    v.getMetros_cuadrados(),
-                    v.getNumero_habitaciones(),
-                    v.getNumero_banios(),
-                    v.getPrecio_mensual(),
-                    v.getEstado()
+                v.getId_vivienda(),
+                v.getCodigo_referencia(),
+                v.getDireccion(),
+                v.getProvincia(),
+                v.getCodigo_postal(),
+                v.getMetros_cuadrados(),
+                v.getNumero_habitaciones(),
+                v.getNumero_banios(),
+                v.getPrecio_mensual(),
+                v.getEstado()
             });
         }
     }
-    
+
     private Vivienda obtenerViviendaSeleccionada() {
         int fila = tablaViviendas.getSelectedRow();
         if (fila == -1) {
@@ -74,23 +78,32 @@ public class ViviendaPanel extends javax.swing.JPanel {
         int id = (int) modeloTabla.getValueAt(fila, 0);
         return viviendaService.obtenerVivienda(id);
     }
-    
+
     private void abrirDialogo(Vivienda vivienda) {
-        Frame parent = (Frame) SwingUtilities.getWindowAncestor(this);
+        // Obtenemos la ventana padre correcta, puede ser JFrame o JDialog
+        Window parent = SwingUtilities.getWindowAncestor(this);
         ViviendaDialog dialog;
+
         if (vivienda == null) {
-            dialog = new ViviendaDialog(parent, true, viviendaService); // Nueva vivienda
+            // Crear nueva vivienda
+            dialog = new ViviendaDialog(parent, true, viviendaService);
         } else {
-            dialog = new ViviendaDialog(parent, true, viviendaService, vivienda); // Editar existente
+            // Editar vivienda existente
+            dialog = new ViviendaDialog(parent, true, viviendaService, vivienda);
         }
+
         dialog.setLocationRelativeTo(parent);
         dialog.setVisible(true);
-        cargarViviendas(); // Actualizar tabla después de cerrar diálogo
+
+        // Actualizar la tabla después de cerrar el diálogo
+        cargarViviendas();
     }
-    
+
     private void eliminarVivienda() {
         Vivienda seleccionada = obtenerViviendaSeleccionada();
-        if (seleccionada == null) return;
+        if (seleccionada == null) {
+            return;
+        }
 
         int confirm = JOptionPane.showConfirmDialog(this,
                 "¿Seguro que desea eliminar esta vivienda?",

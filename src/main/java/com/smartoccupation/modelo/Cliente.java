@@ -1,9 +1,9 @@
 package com.smartoccupation.modelo;
 
 /**
- * Clase que representa un cliente de SmartOccupation.
- * Contiene todos los datos personales y de contacto.
- * Incluye validaciones internas en setters para asegurar consistencia.
+ * Clase que representa un cliente de SmartOccupation. Contiene todos los datos
+ * personales y de contacto. Incluye validaciones internas en setters para
+ * asegurar consistencia.
  */
 public class Cliente {
 
@@ -33,9 +33,9 @@ public class Cliente {
     // Constructor completo
     // -------------------------------
     public Cliente(int id_cliente, String codigo_postal, String provincia,
-                   String ciudad, String direccion, String telefono,
-                   String email, String dni, String segundo_apellido,
-                   String primer_apellido, String nombre) {
+            String ciudad, String direccion, String telefono,
+            String email, String dni, String segundo_apellido,
+            String primer_apellido, String nombre) {
 
         this.id_cliente = id_cliente;
 
@@ -55,7 +55,6 @@ public class Cliente {
     // -------------------------------
     // Getters y Setters con validaciones
     // -------------------------------
-
     public int getId_cliente() {
         return id_cliente;
     }
@@ -69,8 +68,9 @@ public class Cliente {
     }
 
     public void setNombre(String nombre) {
-        if (nombre == null || nombre.isBlank())
+        if (nombre == null || nombre.isBlank()) {
             throw new IllegalArgumentException("El nombre no puede estar vacío");
+        }
         this.nombre = nombre.trim();
     }
 
@@ -79,8 +79,9 @@ public class Cliente {
     }
 
     public void setPrimer_apellido(String primer_apellido) {
-        if (primer_apellido == null || primer_apellido.isBlank())
+        if (primer_apellido == null || primer_apellido.isBlank()) {
             throw new IllegalArgumentException("El primer apellido no puede estar vacío");
+        }
         this.primer_apellido = primer_apellido.trim();
     }
 
@@ -89,8 +90,9 @@ public class Cliente {
     }
 
     public void setSegundo_apellido(String segundo_apellido) {
-        if (segundo_apellido == null || segundo_apellido.isBlank())
+        if (segundo_apellido == null || segundo_apellido.isBlank()) {
             throw new IllegalArgumentException("El segundo apellido no puede estar vacío");
+        }
         this.segundo_apellido = segundo_apellido.trim();
     }
 
@@ -99,8 +101,9 @@ public class Cliente {
     }
 
     public void setDni(String dni) {
-        if (dni == null || dni.length() != 9)
+        if (dni == null || dni.length() != 9) {
             throw new IllegalArgumentException("El DNI debe tener 9 caracteres");
+        }
         this.dni = dni.toUpperCase(); // Convertimos a mayúsculas
     }
 
@@ -109,8 +112,9 @@ public class Cliente {
     }
 
     public void setEmail(String email) {
-        if (email == null || !email.contains("@") || !email.contains("."))
+        if (email == null || !email.contains("@") || !email.contains(".")) {
             throw new IllegalArgumentException("El email no es válido");
+        }
         this.email = email.toLowerCase(); // Convertimos a minúsculas
     }
 
@@ -119,8 +123,9 @@ public class Cliente {
     }
 
     public void setTelefono(String telefono) {
-        if (telefono == null || !telefono.matches("\\d{9}"))
+        if (telefono == null || !telefono.matches("\\d{9}")) {
             throw new IllegalArgumentException("El teléfono debe tener exactamente 9 números");
+        }
         this.telefono = telefono;
     }
 
@@ -129,8 +134,9 @@ public class Cliente {
     }
 
     public void setDireccion(String direccion) {
-        if (direccion == null || direccion.isBlank())
+        if (direccion == null || direccion.isBlank()) {
             throw new IllegalArgumentException("La dirección no puede estar vacía");
+        }
         this.direccion = direccion.trim();
     }
 
@@ -139,8 +145,9 @@ public class Cliente {
     }
 
     public void setCiudad(String ciudad) {
-        if (ciudad == null || ciudad.isBlank())
+        if (ciudad == null || ciudad.isBlank()) {
             throw new IllegalArgumentException("La ciudad no puede estar vacía");
+        }
         this.ciudad = ciudad.trim();
     }
 
@@ -149,8 +156,9 @@ public class Cliente {
     }
 
     public void setProvincia(String provincia) {
-        if (provincia == null || provincia.isBlank())
+        if (provincia == null || provincia.isBlank()) {
             throw new IllegalArgumentException("La provincia no puede estar vacía");
+        }
         this.provincia = provincia.trim();
     }
 
@@ -159,28 +167,30 @@ public class Cliente {
     }
 
     public void setCodigo_postal(String codigo_postal) {
-        if (codigo_postal == null || !codigo_postal.matches("\\d{5}"))
+        if (codigo_postal == null || !codigo_postal.matches("\\d{5}")) {
             throw new IllegalArgumentException("El código postal debe tener exactamente 5 números");
+        }
         this.codigo_postal = codigo_postal;
     }
 
     // -------------------------------
     // toString para depuración
     // -------------------------------
+// toString para mostrar en ComboBox y depuración
+// -------------------------------
     @Override
     public String toString() {
-        return "Cliente{" +
-                "id_cliente=" + id_cliente +
-                ", nombre='" + nombre + '\'' +
-                ", primer_apellido='" + primer_apellido + '\'' +
-                ", segundo_apellido='" + segundo_apellido + '\'' +
-                ", dni='" + dni + '\'' +
-                ", email='" + email + '\'' +
-                ", telefono='" + telefono + '\'' +
-                ", direccion='" + direccion + '\'' +
-                ", ciudad='" + ciudad + '\'' +
-                ", provincia='" + provincia + '\'' +
-                ", codigo_postal='" + codigo_postal + '\'' +
+        // ESTA VERSIÓN ES CLAVE PARA MOSTRAR ALGO ÚTIL EN EL JCOMBOBOX
+        if (nombre != null && primer_apellido != null) {
+            return nombre + " " + primer_apellido + " (" + dni + ")";
+        }
+
+        // Versión para depuración (opcional, pero útil)
+        return "Cliente{"
+                + "id_cliente=" + id_cliente
+                + ", nombre='" + nombre + '\''
+                + ", primer_apellido='" + primer_apellido + '\''
+                + // ... (resto de atributos de depuración si los quieres)
                 '}';
     }
 }
