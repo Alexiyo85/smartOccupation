@@ -32,7 +32,8 @@ public class ClientePanel extends javax.swing.JPanel {
 
         String[] columnas = {
             "ID", "Nombre", "Primer Apellido", "Segundo Apellido",
-            "DNI", "Teléfono", "Email", "Ciudad", "Provincia"
+            "DNI", "Teléfono", "Email", "Dirección" , "Ciudad", "Provincia",
+            "Código Postal"
         };
 
         Object[][] datos = new Object[lista.size()][columnas.length];
@@ -46,8 +47,10 @@ public class ClientePanel extends javax.swing.JPanel {
             datos[i][4] = c.getDni();
             datos[i][5] = c.getTelefono();
             datos[i][6] = c.getEmail();
-            datos[i][7] = c.getCiudad();
-            datos[i][8] = c.getProvincia();
+            datos[i][7] = c.getDireccion();
+            datos[i][8] = c.getCiudad();
+            datos[i][9] = c.getProvincia();
+            datos[i][10] = c.getCodigo_postal();
         }
 
         // Evitamos que la tabla sea editable directamente
@@ -206,6 +209,8 @@ public class ClientePanel extends javax.swing.JPanel {
         jLabel1.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
         jLabel1.setText("Buscar:");
         jPanel1.add(jLabel1);
+
+        txtBuscarCliente.setColumns(15);
         jPanel1.add(txtBuscarCliente);
 
         add(jPanel1, java.awt.BorderLayout.PAGE_START);

@@ -1,48 +1,40 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/GUIForms/JPanel.java to edit this template
- */
 package com.smartoccupation.gui.paneles;
 
 import com.smartoccupation.modelo.Pago;
 import com.smartoccupation.servicios.PagoService;
-import com.smartoccupation.gui.dialog.PagoDialog;
 import com.smartoccupation.servicios.AlquilerService;
+import com.smartoccupation.gui.dialog.PagoDialog;
 
-import java.awt.BorderLayout;
-import java.awt.Frame;
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
-import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
-import javax.swing.table.DefaultTableModel;
 
-public class PagoPanel extends javax.swing.JPanel {
+public class PagoPanel extends JPanel {
 
     private final PagoService pagoService;
     private final AlquilerService alquilerService;
+    private static final DateTimeFormatter FECHA_FORMATO = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     public PagoPanel(PagoService pagoService, AlquilerService alquilerService) {
-    this.pagoService = pagoService;
-    this.alquilerService = alquilerService;
-    initComponents();
-    configurarEventos();
-    cargarPagos();
-}
+        this.pagoService = pagoService;
+        this.alquilerService = alquilerService;
+        initComponents();
+        configurarEventos();
+        cargarPagos();
+    }
 
     // ============================================================
-    // EVENTOS
+    // CONFIGURACIÓN DE EVENTOS
     // ============================================================
     private void configurarEventos() {
-
         btnNuevoPago.addActionListener(e -> abrirDialogNuevoPago());
-
         btnRefrescar.addActionListener(e -> cargarPagos());
-
         btnEliminarPago.addActionListener(e -> eliminarPago());
-
         btnBuscarFechas.addActionListener(e -> buscarPorFechas());
     }
 
@@ -54,9 +46,9 @@ public class PagoPanel extends javax.swing.JPanel {
             List<Pago> lista = pagoService.listarTodosLosPagos();
             actualizarTabla(lista);
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, 
-                "Error cargando pagos: " + e.getMessage(),
-                "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this,
+                    "Error cargando pagos: " + e.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -65,12 +57,8 @@ public class PagoPanel extends javax.swing.JPanel {
         modelo.setRowCount(0);
 
         for (Pago p : pagos) {
-
-            LocalDate fecha = p.getFecha_pago();
-            String fechaStr = fecha != null ? fecha.toString() : "";
-
-            BigDecimal cantidad = p.getCantidad();
-            Double cantDouble = cantidad != null ? cantidad.doubleValue() : null;
+            String fechaStr = p.getFecha_pago() != null ? p.getFecha_pago().format(FECHA_FORMATO) : "";
+            Double cantDouble = p.getCantidad() != null ? p.getCantidad().doubleValue() : null;
 
             modelo.addRow(new Object[]{
                 p.getId_pago(),
@@ -85,47 +73,46 @@ public class PagoPanel extends javax.swing.JPanel {
     // NUEVO PAGO
     // ============================================================
     private void abrirDialogNuevoPago() {
-    Frame parent = (Frame) SwingUtilities.getWindowAncestor(this);
-    PagoDialog dialog = new PagoDialog(parent, true, pagoService, alquilerService);
-    dialog.setLocationRelativeTo(this);
-    dialog.setVisible(true);
+        Window parent = SwingUtilities.getWindowAncestor(this);
+        PagoDialog dialog = new PagoDialog(parent, true, pagoService, alquilerService);
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
 
-    if (dialog.isGuardado()) {
-        cargarPagos();
+        if (dialog.isGuardado()) {
+            cargarPagos();
+        }
     }
-}
-
 
     // ============================================================
     // ELIMINAR PAGO
     // ============================================================
     private void eliminarPago() {
         int fila = tablaPagos.getSelectedRow();
-
         if (fila == -1) {
-            JOptionPane.showMessageDialog(this, 
-                "Debe seleccionar un pago para eliminar.",
-                "Aviso", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this,
+                    "Debe seleccionar un pago para eliminar.",
+                    "Aviso", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
         int idPago = (int) tablaPagos.getValueAt(fila, 0);
-
         int confirm = JOptionPane.showConfirmDialog(
                 this,
                 "¿Está seguro de eliminar el pago seleccionado?",
                 "Confirmar",
                 JOptionPane.YES_NO_OPTION);
 
-        if (confirm != JOptionPane.YES_OPTION) return;
+        if (confirm != JOptionPane.YES_OPTION) {
+            return;
+        }
 
         try {
             pagoService.eliminarPago(idPago);
             cargarPagos();
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this,
-                "Error eliminando pago: " + e.getMessage(),
-                "Error", JOptionPane.ERROR_MESSAGE);
+                    "Error eliminando pago: " + e.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -133,19 +120,12 @@ public class PagoPanel extends javax.swing.JPanel {
     // BÚSQUEDA POR FECHAS
     // ============================================================
     private void buscarPorFechas() {
-
-        LocalDate desde = null;
-        LocalDate hasta = null;
-
-        if (dcDesde.getDate() != null) {
-            desde = dcDesde.getDate().toInstant()
-                    .atZone(ZoneId.systemDefault()).toLocalDate();
-        }
-
-        if (dcHasta.getDate() != null) {
-            hasta = dcHasta.getDate().toInstant()
-                    .atZone(ZoneId.systemDefault()).toLocalDate();
-        }
+        LocalDate desde = dcDesde.getDate() != null
+                ? dcDesde.getDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
+                : null;
+        LocalDate hasta = dcHasta.getDate() != null
+                ? dcHasta.getDate().toInstant().atZone(ZoneId.systemDefault()).toLocalDate()
+                : null;
 
         if (desde == null && hasta == null) {
             JOptionPane.showMessageDialog(this,
@@ -159,10 +139,11 @@ public class PagoPanel extends javax.swing.JPanel {
             actualizarTabla(lista);
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this,
-                "Error buscando pagos: " + e.getMessage(),
-                "Error", JOptionPane.ERROR_MESSAGE);
+                    "Error buscando pagos: " + e.getMessage(),
+                    "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
+
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {

@@ -1,173 +1,119 @@
 package com.smartoccupation.gui.paneles;
 
 import com.smartoccupation.gui.dialog.AlquilerDialog;
+import com.smartoccupation.gui.util.FormUtils;
 import com.smartoccupation.modelo.Alquiler;
 import com.smartoccupation.servicios.AlquilerService;
-import com.smartoccupation.servicios.ClienteService; // IMPORTAR
-import com.smartoccupation.servicios.ViviendaService; // IMPORTAR
+import com.smartoccupation.servicios.ClienteService;
+import com.smartoccupation.servicios.ViviendaService;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
-import java.awt.*;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-public class AlquilerPanel extends javax.swing.JPanel {
+public class AlquilerPanel extends JPanel {
 
     private final AlquilerService alquilerService;
-    // Agregamos estos servicios para pasárselos al diálogo
-    private final ClienteService clienteService = new ClienteService();
-    private final ViviendaService viviendaService = new ViviendaService();
+    private final ClienteService clienteService;
+    private final ViviendaService viviendaService;
 
-    private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-
-    public AlquilerPanel(AlquilerService alquilerService) {
+    public AlquilerPanel(AlquilerService alquilerService,
+            ClienteService clienteService,
+            ViviendaService viviendaService) {
         this.alquilerService = alquilerService;
+        this.clienteService = clienteService;
+        this.viviendaService = viviendaService;
+
         initComponents();
-        configurarTabla();
         cargarTabla();
-        configurarEventos();
+
+        iniciarEventos();
     }
 
-    // ------------------------------------------------------------
-    // CONFIGURACIÓN TABLA
-    // ------------------------------------------------------------
-    private void configurarTabla() {
-        String[] columnas = {
-            "Expediente", "Cliente", "Vivienda", "Fecha Inicio",
-            "Fecha Fin Est.", "Precio Total", "Estado"
-        };
+    private void iniciarEventos() {
+        btnRefrescar.addActionListener(e -> cargarTabla());
 
-        DefaultTableModel model = new DefaultTableModel(columnas, 0) {
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return false;
-            }
-        };
-
-        tablaAlquiler.setModel(model);
-        tablaAlquiler.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-    }
-
-    // ------------------------------------------------------------
-    // CARGAR DATOS EN TABLA
-    // ------------------------------------------------------------
-    private void cargarTabla() {
-        try {
-            List<Alquiler> alquileres = alquilerService.obtenerTodos();
-            DefaultTableModel model = (DefaultTableModel) tablaAlquiler.getModel();
-            model.setRowCount(0);
-
-            for (Alquiler a : alquileres) {
-                model.addRow(new Object[]{
-                    a.getNumero_expediente(),
-                    a.getCliente() != null ? a.getCliente().getNombre() : "—",
-                    a.getVivienda() != null ? a.getVivienda().getDireccion() : "—",
-                    a.getFecha_inicio() != null ? a.getFecha_inicio().format(formatter) : "",
-                    a.getFecha_fin_estimada() != null ? a.getFecha_fin_estimada().format(formatter) : "",
-                    a.getPrecio_total_estimado(),
-                    a.getEstado()
-                });
-            }
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Error cargando alquileres: " + ex.getMessage(), "ERROR", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    // ------------------------------------------------------------
-    // EVENTOS DE BOTONES
-    // ------------------------------------------------------------
-    private void configurarEventos() {
-
-        // ==================================================
-        //  BOTÓN NUEVO (CORREGIDO)
-        // ==================================================
+        // Dentro de iniciarEventos() al abrir diálogo:
         btnNuevo.addActionListener(e -> {
-            // 1. Obtenemos la ventana padre como Window (sin casting a Frame)
-            Window parent = SwingUtilities.getWindowAncestor(this);
-
-            // 2. Pasamos los 3 servicios requeridos por el nuevo constructor
-            AlquilerDialog dialog = new AlquilerDialog(parent, true, alquilerService, clienteService, viviendaService);
-
+            AlquilerDialog dialog = new AlquilerDialog(
+                    SwingUtilities.getWindowAncestor(this), true,
+                    alquilerService, clienteService, viviendaService
+            );
             dialog.setVisible(true);
-
             if (dialog.isGuardado()) {
                 cargarTabla();
             }
         });
 
-        // BOTÓN EDITAR
-        btnEditar.addActionListener(e -> editarSeleccionado());
+        btnEditar.addActionListener(e -> {
+            int fila = tablaAlquiler.getSelectedRow();
+            if (fila == -1) {
+                FormUtils.mostrarAdvertencia(this, "Seleccione un alquiler.");
+                return;
+            }
 
-        // BOTÓN ELIMINAR
-        btnEliminar.addActionListener(e -> eliminarSeleccionado());
+            int id = Integer.parseInt(tablaAlquiler.getValueAt(fila, 0).toString());
+            Alquiler a = alquilerService.obtenerAlquiler(id);
 
-        // BOTÓN REFRESCAR
-        btnRefrescar.addActionListener(e -> cargarTabla());
+            AlquilerDialog dialog = new AlquilerDialog(
+                    SwingUtilities.getWindowAncestor(this), true,
+                    alquilerService, clienteService, viviendaService
+            );
+            dialog.cargarAlquiler(a);
+            dialog.setVisible(true);
+            if (dialog.isGuardado()) {
+                cargarTabla();
+            }
+        });
+        btnEliminar.addActionListener(e -> eliminar());
     }
 
-    private void editarSeleccionado() {
+    private void eliminar() {
         int fila = tablaAlquiler.getSelectedRow();
-
         if (fila == -1) {
-            JOptionPane.showMessageDialog(this, "Seleccione un alquiler para editar.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Seleccione un alquiler.");
             return;
         }
 
-        int expediente = (int) tablaAlquiler.getValueAt(fila, 0);
-        Alquiler alquiler = alquilerService.obtenerAlquiler(expediente);
+        int id = Integer.parseInt(tablaAlquiler.getValueAt(fila, 0).toString());
 
-        if (alquiler == null) {
-            JOptionPane.showMessageDialog(this, "No se pudo cargar el alquiler.", "Error", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
+        if (JOptionPane.showConfirmDialog(this,
+                "¿Eliminar el alquiler?", "Confirmar",
+                JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
 
-        // ==================================================
-        //  EDICIÓN (CORREGIDO)
-        // ==================================================
-        Window parent = SwingUtilities.getWindowAncestor(this);
-
-        // Usamos el constructor de edición que acepta los servicios y la entidad
-        AlquilerDialog dialog = new AlquilerDialog(parent, true, alquilerService, clienteService, viviendaService, alquiler);
-
-        dialog.setVisible(true);
-
-        if (dialog.isGuardado()) {
-            cargarTabla();
-        }
-    }
-
-    private void eliminarSeleccionado() {
-        int fila = tablaAlquiler.getSelectedRow();
-
-        if (fila == -1) {
-            JOptionPane.showMessageDialog(this, "Seleccione un alquiler para eliminar.", "Aviso", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        int expediente = (int) tablaAlquiler.getValueAt(fila, 0);
-
-        int confirm = JOptionPane.showConfirmDialog(
-                this,
-                "¿Seguro que desea eliminar este alquiler?",
-                "Confirmar eliminación",
-                JOptionPane.YES_NO_OPTION
-        );
-
-        if (confirm != JOptionPane.YES_OPTION) {
-            return;
-        }
-
-        try {
-            boolean eliminado = alquilerService.eliminarAlquiler(expediente);
-            if (eliminado) {
+            if (alquilerService.eliminarAlquiler(id)) {
+                JOptionPane.showMessageDialog(this, "Alquiler eliminado.");
                 cargarTabla();
             } else {
-                JOptionPane.showMessageDialog(this, "No se pudo eliminar el alquiler.", "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "No se pudo eliminar.");
             }
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Error eliminando alquiler: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    private void cargarTabla() {
+        List<Alquiler> lista = alquilerService.obtenerTodos();
+
+        DefaultTableModel model = new DefaultTableModel(
+                new Object[]{"ID", "Cliente", "Vivienda", "Inicio", "Meses", "Días", "Total"}, 0
+        ) {
+            public boolean isCellEditable(int r, int c) {
+                return false;
+            }
+        };
+
+        for (Alquiler a : lista) {
+            model.addRow(new Object[]{
+                a.getNumero_expediente(),
+                a.getCliente() != null ? a.getCliente().getNombre() : a.getId_cliente(),
+                a.getVivienda() != null ? a.getVivienda().getDireccion() : a.getId_vivienda(),
+                a.getFecha_inicio(),
+                a.getTiempo_meses(),
+                a.getTiempo_dias(),
+                a.getPrecio_total_estimado()
+            });
+        }
+
+        tablaAlquiler.setModel(model);
     }
 
     @SuppressWarnings("unchecked")

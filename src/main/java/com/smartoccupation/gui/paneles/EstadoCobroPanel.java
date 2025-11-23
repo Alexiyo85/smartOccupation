@@ -1,209 +1,152 @@
 package com.smartoccupation.gui.paneles;
 
+import com.smartoccupation.modelo.Pago;
+import com.smartoccupation.modelo.Alquiler;
 import com.smartoccupation.modelo.EstadoCobro;
+import com.smartoccupation.servicios.PagoService;
+import com.smartoccupation.servicios.AlquilerService;
 import com.smartoccupation.servicios.EstadoCobroService;
-import com.smartoccupation.gui.dialog.EstadoCobroDialog; // Necesario para Nuevo/Editar
-import com.smartoccupation.gui.util.FormUtils;
-import java.awt.Frame;
 
-import javax.swing.JDialog;
-import javax.swing.JOptionPane;
+import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+import java.awt.*;
 import java.util.List;
-import javax.swing.SwingUtilities;
+import java.util.stream.Collectors;
 
-/**
- * Panel de gestión para la entidad EstadoCobro (Catálogo).
- */
-public class EstadoCobroPanel extends javax.swing.JPanel {
+public class EstadoCobroPanel extends JPanel {
 
-    private final EstadoCobroService estadoCobroService;
+    private final PagoService pagoService;
+    private final AlquilerService alquilerService;
+    private final EstadoCobroService estadoService;
 
-    // ===============================================================
-    // CONSTRUCTOR
-    // ===============================================================
-    public EstadoCobroPanel(EstadoCobroService estadoCobroService) {
-        this.estadoCobroService = estadoCobroService;
+    public EstadoCobroPanel(PagoService pagoService, AlquilerService alquilerService, EstadoCobroService estadoService) {
+        this.pagoService = pagoService;
+        this.alquilerService = alquilerService;
+        this.estadoService = estadoService;
+
         initComponents();
-        configurarTabla();
-        configurarEventos();
-        cargarTabla(); // Cargar datos al iniciar
+        cargarComboEstados();
+        iniciarEventos();
+        cargarTabla(); // mostrar por defecto
     }
 
-    // ===============================================================
-    // LÓGICA DE TABLA
-    // ===============================================================
-    private void configurarTabla() {
-        DefaultTableModel modelo = new DefaultTableModel() {
+    private void cargarComboEstados() {
+        cbEstado.removeAllItems();
+        List<EstadoCobro> estados = estadoService.obtenerTodos();
+        for (EstadoCobro e : estados) {
+            cbEstado.addItem(e.getNombre());
+        }
+    }
+
+    private void iniciarEventos() {
+        btnRefrescar.addActionListener(e -> cargarTabla());
+        cbEstado.addActionListener(e -> cargarTabla());
+    }
+
+    private void cargarTabla() {
+        if (cbEstado.getSelectedItem() == null) return;
+        String estadoSeleccionado = cbEstado.getSelectedItem().toString();
+
+        // Listar todos los pagos y filtrar por estado de su alquiler
+        List<Pago> pagosFiltrados = pagoService.listarTodosLosPagos().stream()
+                .filter(p -> {
+                    Alquiler a = alquilerService.obtenerAlquiler(p.getNumero_expediente());
+                    if (a == null) return false;
+                    EstadoCobro est = estadoService.obtenerEstadoCobroPorId(a.getId_estado_cobro());
+                    return est != null && est.getNombre().equalsIgnoreCase(estadoSeleccionado);
+                })
+                .collect(Collectors.toList());
+
+        DefaultTableModel model = new DefaultTableModel(
+                new Object[]{"ID Pago", "Alquiler", "Fecha Pago", "Cantidad", "Estado"}, 0
+        ) {
             @Override
             public boolean isCellEditable(int row, int column) {
-                return false; // Hacemos la tabla no editable
+                return false;
             }
         };
 
-        // Definición de las columnas de la tabla de catálogo
-        String[] columnas = {"ID", "Nombre / Descripción"};
-        modelo.setColumnIdentifiers(columnas);
-        tablaEstadoCobro.setModel(modelo);
-
-        // Ocultar la columna ID, pero mantenerla en el modelo
-        FormUtils.ocultarColumna(tablaEstadoCobro, 0);
-    }
-
-    public void cargarTabla() {
-        try {
-            List<EstadoCobro> estados = estadoCobroService.obtenerTodos();
-            DefaultTableModel modelo = (DefaultTableModel) tablaEstadoCobro.getModel();
-            modelo.setRowCount(0); // Limpiar filas existentes
-
-            for (EstadoCobro estado : estados) {
-                // Fila: ID, Nombre
-                modelo.addRow(new Object[]{
-                    estado.getId_estado(),
-                    estado.getNombre_estado()
-                });
-            }
-        } catch (Exception e) {
-            FormUtils.mostrarError(this, "Error al cargar los estados de cobro: " + e.getMessage());
+        for (Pago p : pagosFiltrados) {
+            Alquiler a = alquilerService.obtenerAlquiler(p.getNumero_expediente());
+            EstadoCobro est = estadoService.obtenerEstadoCobroPorId(a.getId_estado_cobro());
+            model.addRow(new Object[]{
+                    p.getId_pago(),
+                    a != null ? a.getNumero_expediente() : p.getNumero_expediente(),
+                    p.getFecha_pago(),
+                    p.getCantidad(),
+                    est != null ? est.getNombre() : "Desconocido"
+            });
         }
+
+        tablaCobros.setModel(model);
     }
-
-    private EstadoCobro obtenerSeleccionado() {
-        int fila = tablaEstadoCobro.getSelectedRow();
-        if (fila == -1) {
-            FormUtils.mostrarAdvertencia(this, "Debe seleccionar un estado de cobro de la lista.");
-            return null;
-        }
-        try {
-            // El ID está en la columna 0 (oculta)
-            Integer id = (Integer) tablaEstadoCobro.getModel().getValueAt(fila, 0);
-            return estadoCobroService.obtenerEstadoCobroPorId(id);
-        } catch (Exception e) {
-            FormUtils.mostrarError(this, "Error al obtener el estado seleccionado: " + e.getMessage());
-            return null;
-        }
-    }
-
-    // ===============================================================
-    // LÓGICA DE EVENTOS (CRUD)
-    // ===============================================================
-    private void configurarEventos() {
-        btnNuevo.addActionListener(e -> nuevoEstadoCobro());
-        btnEditar.addActionListener(e -> editarSeleccionado());
-        btnEliminar.addActionListener(e -> eliminarSeleccionado());
-        btnRefrescar.addActionListener(e -> cargarTabla());
-    }
-
-        private void nuevoEstadoCobro() {
-        // Obtenemos el Frame principal para centrar el diálogo
-        Frame parent = (Frame) SwingUtilities.getWindowAncestor(this);
-
-        // Creamos el diálogo para un nuevo registro (null como EstadoCobro)
-        EstadoCobroDialog dialog = new EstadoCobroDialog(parent, true, estadoCobroService, null);
-        dialog.setVisible(true);
-
-        // Si se guardó algo, recargamos la tabla
-        cargarTabla();
-    }
-
-    private void editarSeleccionado() {
-        EstadoCobro seleccionado = obtenerSeleccionado();
-        if (seleccionado != null) {
-            Frame parent = (Frame) SwingUtilities.getWindowAncestor(this);
-
-            // Creamos el diálogo cargando el EstadoCobro seleccionado
-            EstadoCobroDialog dialog = new EstadoCobroDialog(parent, true, estadoCobroService, seleccionado);
-            dialog.setVisible(true);
-
-            // Si se actualizó algo, recargamos la tabla
-            cargarTabla();
-        }
-    }
-
-    private void eliminarSeleccionado() {
-        EstadoCobro seleccionado = obtenerSeleccionado();
-        if (seleccionado != null) {
-            int opcion = JOptionPane.showConfirmDialog(this,
-                    "¿Está seguro de que desea eliminar el estado: " + seleccionado.getNombre() + "?",
-                    "Confirmar Eliminación", JOptionPane.YES_NO_OPTION);
-
-            if (opcion == JOptionPane.YES_OPTION) {
-                try {
-                    estadoCobroService.eliminarEstadoCobro(seleccionado.getId_estado());
-                    FormUtils.mostrarInfo(this, "Estado de cobro eliminado correctamente.");
-                    cargarTabla(); // Recargar tras eliminar
-                } catch (Exception e) {
-                    // Nota: Si el estado está en uso (llave foránea), la DB tirará un error.
-                    FormUtils.mostrarError(this, "Error al eliminar el estado de cobro: "
-                            + "Verifique que no esté en uso por algún registro. "
-                            + e.getMessage());
-                }
-            }
-        }
-    }
-
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        jPanel1 = new javax.swing.JPanel();
-        btnNuevo = new javax.swing.JButton();
-        btnEditar = new javax.swing.JButton();
-        btnEliminar = new javax.swing.JButton();
+        PanelBusqueda = new javax.swing.JPanel();
+        jLabel1 = new javax.swing.JLabel();
+        cbEstado = new javax.swing.JComboBox<>();
         btnRefrescar = new javax.swing.JButton();
-        jScrollPane1 = new javax.swing.JScrollPane();
-        tablaEstadoCobro = new javax.swing.JTable();
+        panelFiltros = new javax.swing.JScrollPane();
+        tablaCobros = new javax.swing.JTable();
+        jPanel1 = new javax.swing.JPanel();
+        jLabel2 = new javax.swing.JLabel();
+        cbFiltros = new javax.swing.JComboBox<>();
+        btnBuscar = new javax.swing.JButton();
 
         setLayout(new java.awt.BorderLayout());
 
-        btnNuevo.setText("Nuevo");
-        jPanel1.add(btnNuevo);
+        jLabel1.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
+        jLabel1.setHorizontalAlignment(javax.swing.SwingConstants.RIGHT);
+        jLabel1.setText("Estado del Cobro:");
+        PanelBusqueda.add(jLabel1);
 
-        btnEditar.setText("Editar");
-        jPanel1.add(btnEditar);
-
-        btnEliminar.setText("Eliminar");
-        btnEliminar.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                btnEliminarActionPerformed(evt);
-            }
-        });
-        jPanel1.add(btnEliminar);
+        cbEstado.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Pendiente", "Pagado", "Retrasado" }));
+        PanelBusqueda.add(cbEstado);
 
         btnRefrescar.setText("Refrescar");
-        jPanel1.add(btnRefrescar);
+        PanelBusqueda.add(btnRefrescar);
 
-        add(jPanel1, java.awt.BorderLayout.PAGE_END);
+        add(PanelBusqueda, java.awt.BorderLayout.PAGE_START);
 
-        tablaEstadoCobro.setModel(new javax.swing.table.DefaultTableModel(
+        tablaCobros.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
-                {null, null, null, null},
-                {null, null, null, null},
-                {null, null, null, null},
-                {null, null, null, null}
+                {null, null, null, null, null},
+                {null, null, null, null, null},
+                {null, null, null, null, null},
+                {null, null, null, null, null}
             },
             new String [] {
-                "Title 1", "Title 2", "Title 3", "Title 4"
+                "ID", "Cliente", "Fecha", "Monto", "Estado"
             }
         ));
-        jScrollPane1.setViewportView(tablaEstadoCobro);
+        panelFiltros.setViewportView(tablaCobros);
 
-        add(jScrollPane1, java.awt.BorderLayout.CENTER);
+        add(panelFiltros, java.awt.BorderLayout.CENTER);
+
+        jLabel2.setText("Filtros");
+        jPanel1.add(jLabel2);
+
+        jPanel1.add(cbFiltros);
+
+        btnBuscar.setText("Buscar");
+        jPanel1.add(btnBuscar);
+
+        add(jPanel1, java.awt.BorderLayout.PAGE_END);
     }// </editor-fold>//GEN-END:initComponents
-
-    private void btnEliminarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnEliminarActionPerformed
-        // TODO add your handling code here:
-        
-    }//GEN-LAST:event_btnEliminarActionPerformed
 
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JButton btnEditar;
-    private javax.swing.JButton btnEliminar;
-    private javax.swing.JButton btnNuevo;
+    private javax.swing.JPanel PanelBusqueda;
+    private javax.swing.JButton btnBuscar;
     private javax.swing.JButton btnRefrescar;
+    private javax.swing.JComboBox<String> cbEstado;
+    private javax.swing.JComboBox<String> cbFiltros;
+    private javax.swing.JLabel jLabel1;
+    private javax.swing.JLabel jLabel2;
     private javax.swing.JPanel jPanel1;
-    private javax.swing.JScrollPane jScrollPane1;
-    private javax.swing.JTable tablaEstadoCobro;
+    private javax.swing.JScrollPane panelFiltros;
+    private javax.swing.JTable tablaCobros;
     // End of variables declaration//GEN-END:variables
 }

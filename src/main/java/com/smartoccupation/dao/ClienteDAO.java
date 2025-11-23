@@ -7,17 +7,9 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * DAO para la tabla "clientes".
- * Proporciona operaciones CRUD y consulta de todos los clientes.
- */
 public class ClienteDAO {
 
-    private ResultSet rs;
-
-    // -------------------------------
     // Insertar cliente
-    // -------------------------------
     public boolean insertar(Cliente cliente) {
         String sql = "INSERT INTO clientes " +
                 "(nombre, primer_apellido, segundo_apellido, dni_nif, telefono, email, direccion, ciudad, provincia, codigo_postal) " +
@@ -43,16 +35,13 @@ public class ClienteDAO {
             }
 
             return filas > 0;
-
         } catch (SQLException e) {
             System.out.println("Error al insertar cliente: " + e.getMessage());
             return false;
         }
     }
 
-    // -------------------------------
     // Actualizar cliente
-    // -------------------------------
     public boolean actualizar(Cliente cliente) {
         String sql = "UPDATE clientes SET nombre=?, primer_apellido=?, segundo_apellido=?, dni_nif=?, " +
                 "telefono=?, email=?, direccion=?, ciudad=?, provincia=?, codigo_postal=? WHERE id_cliente=?";
@@ -79,9 +68,7 @@ public class ClienteDAO {
         }
     }
 
-    // -------------------------------
-    // Eliminar cliente por ID
-    // -------------------------------
+    // Eliminar cliente
     public boolean eliminar(int idCliente) {
         String sql = "DELETE FROM clientes WHERE id_cliente=?";
         try (Connection conn = ConexionBBDD.conectar();
@@ -94,9 +81,7 @@ public class ClienteDAO {
         }
     }
 
-    // -------------------------------
     // Obtener cliente por ID
-    // -------------------------------
     public Cliente obtenerPorId(int idCliente) {
         String sql = "SELECT * FROM clientes WHERE id_cliente=?";
         Cliente cliente = null;
@@ -112,9 +97,7 @@ public class ClienteDAO {
         return cliente;
     }
 
-    // -------------------------------
     // Obtener todos los clientes
-    // -------------------------------
     public List<Cliente> obtenerTodos() {
         List<Cliente> lista = new ArrayList<>();
         String sql = "SELECT * FROM clientes ORDER BY id_cliente";
@@ -128,9 +111,23 @@ public class ClienteDAO {
         return lista;
     }
 
-    // -------------------------------
+    // Obtener cliente por DNI
+    public Cliente obtenerPorDni(String dni) {
+        String sql = "SELECT * FROM clientes WHERE dni_nif=?";
+        Cliente cliente = null;
+        try (Connection conn = ConexionBBDD.conectar();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, dni.toUpperCase());
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) cliente = mapearCliente(rs);
+            }
+        } catch (SQLException e) {
+            System.out.println("Error al obtener cliente por DNI: " + e.getMessage());
+        }
+        return cliente;
+    }
+
     // Mapear ResultSet → Cliente
-    // -------------------------------
     private Cliente mapearCliente(ResultSet rs) throws SQLException {
         Cliente c = new Cliente();
         c.setId_cliente(rs.getInt("id_cliente"));
@@ -146,23 +143,4 @@ public class ClienteDAO {
         c.setCodigo_postal(rs.getString("codigo_postal"));
         return c;
     }
-
-    // -------------------------------
-    // Obtener cliente por DNI
-    // -------------------------------
-    public Cliente obtenerPorDni(String dni) {
-        String sql = "SELECT * FROM clientes WHERE dni_nif=?";
-        Cliente cliente = null;
-        try (Connection conn = ConexionBBDD.conectar();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, dni.toUpperCase()); // Normalizamos a mayúsculas
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) cliente = mapearCliente(rs);
-            }
-        } catch (SQLException e) {
-            System.out.println("Error al obtener cliente por DNI: " + e.getMessage());
-        }
-        return cliente;
-    }
-
 }

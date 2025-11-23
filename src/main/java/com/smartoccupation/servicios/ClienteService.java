@@ -9,11 +9,15 @@ import java.util.List;
 
 public class ClienteService {
 
-    private final ClienteDAO clienteDAO = new ClienteDAO();
-    private final AlquilerDAO alquilerDAO = new AlquilerDAO();
+    private final ClienteDAO clienteDAO;
+    private final AlquilerDAO alquilerDAO;
+
+    public ClienteService(ClienteDAO clienteDAO, AlquilerDAO alquilerDAO) {
+        this.clienteDAO = clienteDAO;
+        this.alquilerDAO = alquilerDAO;
+    }
 
     public boolean crearCliente(Cliente cliente) {
-        // Validar DNI duplicado
         Cliente existente = clienteDAO.obtenerPorDni(cliente.getDni());
         if (existente != null) {
             throw new IllegalArgumentException("Ya existe un cliente con ese DNI");

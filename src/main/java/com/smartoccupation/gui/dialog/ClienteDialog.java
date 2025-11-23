@@ -12,13 +12,29 @@ public class ClienteDialog extends BaseDialog {
     private final ClienteService clienteService;
     private Cliente clienteActual;
 
+// ===============================================================
+// CONSTRUCTORES Y CONFIGURACIÓN (La Inyección de Referencias)
+// ===============================================================
+    
     // Constructor Crear
     public ClienteDialog(Window parent, boolean modal, ClienteService clienteService) {
-        // Usamos el nuevo constructor de BaseDialog
         super(parent, modal ? Dialog.ModalityType.APPLICATION_MODAL : Dialog.ModalityType.MODELESS);
         this.clienteService = clienteService;
+
+        // 1. Ejecuta el código generado. Esto crea las instancias de los componentes privados.
         initComponents();
-        // NO LLAMAMOS A configurarEventos() PORQUE BASEDIALOG YA GESTIONA LOS BOTONES
+
+        // 2. PASO CLAVE: INYECTAMOS las referencias de los botones privados al padre.
+        // Esto permite que BaseDialog configure los listeners en los objetos correctos.
+        setBtnGuardar(this.btnGuardar); 
+        setBtnCancelar(this.btnCancelar);
+        
+        // 3. LLAMADA CLAVE: BaseDialog aplica la lógica a las referencias inyectadas.
+        configurarBotonesBase();
+
+        // Finaliza la configuración de la ventana.
+        pack();
+        setLocationRelativeTo(parent); 
     }
 
     // Constructor Editar
@@ -29,7 +45,10 @@ public class ClienteDialog extends BaseDialog {
         setTitle("Editar Cliente");
     }
 
-    // El método cargarCliente se mantiene igual...
+// -----------------------------------------------------------------------------------
+// MÉTODOS DE NEGOCIO Y LÓGICA ABSTRACTA
+// -----------------------------------------------------------------------------------
+
     public void cargarCliente(Cliente cliente) {
         this.clienteActual = cliente;
         txtNombre.setText(cliente.getNombre() != null ? cliente.getNombre() : "");
@@ -40,11 +59,13 @@ public class ClienteDialog extends BaseDialog {
         txtProvincia.setText(cliente.getProvincia() != null ? cliente.getProvincia() : "");
         txtEmail.setText(cliente.getEmail() != null ? cliente.getEmail() : "");
         txtTelefono.setText(cliente.getTelefono() != null ? cliente.getTelefono() : "");
+        txtDireccion.setText(cliente.getDireccion() !=null ? cliente.getDireccion(): "");
+        txtCodigoPostal.setText(cliente.getCodigo_postal() != null ? cliente.getCodigo_postal(): "");
     }
 
     @Override
     protected boolean validarCampos() {
-        // Se mantiene igual, pero usamos el método del padre para mostrar advertencias si quieres
+        // Lógica de validación
         try {
             if (txtNombre.getText().trim().isEmpty()) {
                 throw new IllegalArgumentException("Falta nombre.");
@@ -60,14 +81,14 @@ public class ClienteDialog extends BaseDialog {
             }
             return true;
         } catch (IllegalArgumentException ex) {
-            mostrarAdvertencia(ex.getMessage()); // Método heredado de BaseDialog
+            mostrarAdvertencia(ex.getMessage());
             return false;
         }
     }
 
     @Override
     protected void guardarEntidad() throws Exception {
-        // Lógica de negocio pura. No gestiona el dispose ni try-catch, eso lo hace el padre.
+        // Lógica de negocio (CRUD)
         if (clienteActual == null) {
             clienteActual = new Cliente();
         }
@@ -78,7 +99,9 @@ public class ClienteDialog extends BaseDialog {
         clienteActual.setCiudad(txtCiudad.getText().trim());
         clienteActual.setProvincia(txtProvincia.getText().trim());
         clienteActual.setEmail(txtEmail.getText().trim().isEmpty() ? null : txtEmail.getText().trim());
+        clienteActual.setDireccion(txtDireccion.getText().trim());
         clienteActual.setTelefono(txtTelefono.getText().trim().isEmpty() ? null : txtTelefono.getText().trim());
+        clienteActual.setCodigo_postal(txtCodigoPostal.getText().trim());
 
         if (clienteActual.getId_cliente() <= 0) {
             clienteService.crearCliente(clienteActual);
@@ -109,6 +132,10 @@ public class ClienteDialog extends BaseDialog {
         txtCiudad = new javax.swing.JTextField();
         jLabel2 = new javax.swing.JLabel();
         txtProvincia = new javax.swing.JTextField();
+        jLabel9 = new javax.swing.JLabel();
+        txtDireccion = new javax.swing.JTextField();
+        jLabel10 = new javax.swing.JLabel();
+        txtCodigoPostal = new javax.swing.JTextField();
         jPanel3 = new javax.swing.JPanel();
         btnGuardar = new javax.swing.JButton();
         btnCancelar = new javax.swing.JButton();
@@ -249,7 +276,7 @@ public class ClienteDialog extends BaseDialog {
         jLabel8.setText("Ciudad:");
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 6;
+        gridBagConstraints.gridy = 7;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.EAST;
         gridBagConstraints.insets = new java.awt.Insets(0, 10, 0, 10);
         jPanel1.add(jLabel8, gridBagConstraints);
@@ -257,7 +284,7 @@ public class ClienteDialog extends BaseDialog {
         txtCiudad.setColumns(20);
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 1;
-        gridBagConstraints.gridy = 6;
+        gridBagConstraints.gridy = 7;
         gridBagConstraints.ipadx = 120;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         gridBagConstraints.weightx = 1.0;
@@ -268,7 +295,7 @@ public class ClienteDialog extends BaseDialog {
         jLabel2.setText("Provincia:");
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 7;
+        gridBagConstraints.gridy = 8;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.EAST;
         gridBagConstraints.insets = new java.awt.Insets(0, 10, 0, 10);
         jPanel1.add(jLabel2, gridBagConstraints);
@@ -276,11 +303,45 @@ public class ClienteDialog extends BaseDialog {
         txtProvincia.setColumns(20);
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 1;
-        gridBagConstraints.gridy = 7;
+        gridBagConstraints.gridy = 8;
         gridBagConstraints.ipadx = 120;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
         gridBagConstraints.weightx = 1.0;
         jPanel1.add(txtProvincia, gridBagConstraints);
+
+        jLabel9.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
+        jLabel9.setText("Dirección:");
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 6;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.EAST;
+        gridBagConstraints.insets = new java.awt.Insets(0, 10, 0, 10);
+        jPanel1.add(jLabel9, gridBagConstraints);
+
+        txtDireccion.setColumns(20);
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 1;
+        gridBagConstraints.gridy = 6;
+        gridBagConstraints.ipadx = 120;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
+        jPanel1.add(txtDireccion, gridBagConstraints);
+
+        jLabel10.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
+        jLabel10.setText("Código Postal:");
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 9;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.EAST;
+        gridBagConstraints.insets = new java.awt.Insets(0, 10, 0, 10);
+        jPanel1.add(jLabel10, gridBagConstraints);
+
+        txtCodigoPostal.setColumns(20);
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 1;
+        gridBagConstraints.gridy = 9;
+        gridBagConstraints.ipadx = 120;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
+        jPanel1.add(txtCodigoPostal, gridBagConstraints);
 
         getContentPane().add(jPanel1, java.awt.BorderLayout.CENTER);
 
@@ -309,6 +370,7 @@ public class ClienteDialog extends BaseDialog {
     private javax.swing.JButton btnCancelar;
     private javax.swing.JButton btnGuardar;
     private javax.swing.JLabel jLabel1;
+    private javax.swing.JLabel jLabel10;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
@@ -316,11 +378,14 @@ public class ClienteDialog extends BaseDialog {
     private javax.swing.JLabel jLabel6;
     private javax.swing.JLabel jLabel7;
     private javax.swing.JLabel jLabel8;
+    private javax.swing.JLabel jLabel9;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel3;
     private javax.swing.JTextField txtApellido1;
     private javax.swing.JTextField txtApellido2;
     private javax.swing.JTextField txtCiudad;
+    private javax.swing.JTextField txtCodigoPostal;
+    private javax.swing.JTextField txtDireccion;
     private javax.swing.JTextField txtDni;
     private javax.swing.JTextField txtEmail;
     private javax.swing.JTextField txtNombre;

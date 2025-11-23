@@ -2,12 +2,16 @@ package com.smartoccupation.servicios;
 
 import com.smartoccupation.dao.ViviendaDAO;
 import com.smartoccupation.modelo.Vivienda;
-
 import java.util.List;
 
 public class ViviendaService {
 
-    private final ViviendaDAO viviendaDAO = new ViviendaDAO();
+    private final ViviendaDAO viviendaDAO;
+
+    public ViviendaService(ViviendaDAO viviendaDAO) {
+        if (viviendaDAO == null) throw new IllegalArgumentException("DAO no puede ser nulo");
+        this.viviendaDAO = viviendaDAO;
+    }
 
     public boolean crearVivienda(Vivienda vivienda) {
         return viviendaDAO.insertar(vivienda);

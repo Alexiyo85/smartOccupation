@@ -8,14 +8,26 @@ import com.smartoccupation.modelo.EstadoCobro;
 import com.smartoccupation.modelo.Vivienda;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
 
+/**
+ * Servicio para gestionar la lógica de negocio de los alquileres.
+ */
 public class AlquilerService {
 
-    private final AlquilerDAO alquilerDAO = new AlquilerDAO();
-    private final ViviendaDAO viviendaDAO = new ViviendaDAO();
-    private final EstadoCobroDAO estadoDAO = new EstadoCobroDAO();
+    private final AlquilerDAO alquilerDAO;
+    private final ViviendaDAO viviendaDAO;
+    private final EstadoCobroDAO estadoDAO;
+
+    // Constructor con inyección de dependencias
+    public AlquilerService(AlquilerDAO alquilerDAO, ViviendaDAO viviendaDAO, EstadoCobroDAO estadoDAO) {
+        if (alquilerDAO == null || viviendaDAO == null || estadoDAO == null) {
+            throw new IllegalArgumentException("Los DAOs no pueden ser nulos");
+        }
+        this.alquilerDAO = alquilerDAO;
+        this.viviendaDAO = viviendaDAO;
+        this.estadoDAO = estadoDAO;
+    }
 
     // Crear un alquiler solo si la vivienda está disponible
     public boolean crearAlquiler(Alquiler alquiler) {

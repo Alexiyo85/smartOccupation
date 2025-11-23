@@ -8,141 +8,188 @@ import com.smartoccupation.servicios.ClienteService;
 import com.smartoccupation.servicios.ViviendaService;
 import com.smartoccupation.gui.util.FormUtils;
 
-import javax.swing.*;
-import java.awt.*; // Necesario para Window
-import java.util.List;
+import java.awt.*;
+import java.awt.event.KeyAdapter;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.Date;
 
 public class AlquilerDialog extends BaseDialog {
 
-    // Quitamos los 'new Service()' y los recibimos en el constructor
     private final AlquilerService alquilerService;
     private final ClienteService clienteService;
     private final ViviendaService viviendaService;
 
-    private Alquiler alquilerActual;
+    private Alquiler alquilerEnEdicion;
 
-    // ===============================================================
-    // CONSTRUCTOR: Acepta Window y Servicios
-    // ===============================================================
     public AlquilerDialog(Window parent, boolean modal,
             AlquilerService alquilerService,
             ClienteService clienteService,
             ViviendaService viviendaService) {
-
-        // Llamada correcta al padre BaseDialog
-        super(parent, modal ? Dialog.ModalityType.APPLICATION_MODAL : Dialog.ModalityType.MODELESS);
-
+        super(parent, modal ? ModalityType.APPLICATION_MODAL : ModalityType.MODELESS);
         this.alquilerService = alquilerService;
         this.clienteService = clienteService;
         this.viviendaService = viviendaService;
 
-        setTitle("Gestión de Alquiler");
-        initComponents(); // initComponents LIMPIO (sin botones)
-        cargarClientes();
-        cargarViviendas();
-    }
+        initComponents();
 
-    // Constructor opcional para editar directamente
-    public AlquilerDialog(Window parent, boolean modal,
-            AlquilerService as, ClienteService cs, ViviendaService vs,
-            Alquiler alquiler) {
-        this(parent, modal, as, cs, vs);
-        cargarAlquiler(alquiler);
-    }
+        // 🔹 Inyección de botones
+        setBtnGuardar(btnGuardar);
+        setBtnCancelar(btnCancelar);
+        configurarBotonesBase();
 
-    private void cargarClientes() {
-        try {
-            List<Cliente> clientes = clienteService.obtenerTodos();
-            DefaultComboBoxModel<Cliente> modelo = new DefaultComboBoxModel<>();
-            modelo.addElement(null); // Opción vacía
-            clientes.forEach(modelo::addElement);
-            cbCliente.setModel(modelo);
-        } catch (Exception e) {
-            mostrarError("Error al cargar clientes: " + e.getMessage());
-        }
-    }
-
-    private void cargarViviendas() {
-        try {
-            List<Vivienda> viviendas = viviendaService.obtenerTodas();
-            DefaultComboBoxModel<Vivienda> modelo = new DefaultComboBoxModel<>();
-            modelo.addElement(null);
-            viviendas.forEach(modelo::addElement);
-            cbVivienda.setModel(modelo);
-        } catch (Exception e) {
-            mostrarError("Error al cargar viviendas: " + e.getMessage());
-        }
+        setLocationRelativeTo(parent);
+        cargarCombos();
+        iniciarEventos();
     }
 
     public void cargarAlquiler(Alquiler alquiler) {
-        this.alquilerActual = alquiler;
+        this.alquilerEnEdicion = alquiler;
+
         if (alquiler != null) {
-            FormUtils.seleccionarItem(cbCliente, alquiler.getCliente());
-            FormUtils.seleccionarItem(cbVivienda, alquiler.getVivienda());
-            cbEstado.setSelectedItem(alquiler.getEstado()); // Cambio directo si es String
+            // Cliente
+            FormUtils.seleccionarItem(cbCliente, clienteService.obtenerCliente(alquiler.getId_cliente()));
+            // Vivienda
+            Vivienda viviendaActual = viviendaService.obtenerVivienda(alquiler.getId_vivienda());
+            if (viviendaActual != null && !viviendaEstaEnCombo(viviendaActual)) {
+                cbVivienda.addItem(viviendaActual);
+            }
+            FormUtils.seleccionarItem(cbVivienda, viviendaActual);
 
-            dcFechaInicio.setDate(alquiler.getFecha_inicio() != null
-                    ? java.util.Date.from(alquiler.getFecha_inicio().atStartOfDay(java.time.ZoneId.systemDefault()).toInstant())
-                    : null);
-
-            txtTiempoEnMeses.setText(alquiler.getTiempo_meses() > 0 ? String.valueOf(alquiler.getTiempo_meses()) : "");
-            txtTiempoEnDias.setText(alquiler.getTiempo_dias() > 0 ? String.valueOf(alquiler.getTiempo_dias()) : "");
-            txtPrecioTotalEstimado.setText(alquiler.getPrecio_total_estimado() != null ? alquiler.getPrecio_total_estimado().toString() : "");
+            // Fecha inicio
+            dcFechaInicio.setDate(Date.from(alquiler.getFecha_inicio().atStartOfDay(ZoneId.systemDefault()).toInstant()));
+            txtTiempoEnMeses.setText(String.valueOf(alquiler.getTiempo_meses()));
+            txtTiempoEnDias.setText(String.valueOf(alquiler.getTiempo_dias()));
+            txtPrecioTotalEstimado.setText(alquiler.getPrecio_total_estimado().toPlainString());
         }
     }
 
-    @Override
-    protected boolean validarCampos() {
+    private void cargarCombos() {
+        cbCliente.removeAllItems();
+        for (Cliente c : clienteService.obtenerTodos()) {
+            cbCliente.addItem(c);
+        }
+
+        cbVivienda.removeAllItems();
+        for (Vivienda v : viviendaService.obtenerPorEstado("disponible")) {
+            cbVivienda.addItem(v);
+        }
+    }
+
+    private boolean viviendaEstaEnCombo(Vivienda v) {
+        for (int i = 0; i < cbVivienda.getItemCount(); i++) {
+            if (cbVivienda.getItemAt(i).getId_vivienda() == v.getId_vivienda()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void iniciarEventos() {
+        dcFechaInicio.getDateEditor().addPropertyChangeListener(evt -> {
+            if ("date".equals(evt.getPropertyName())) {
+                recalcularValores();
+            }
+        });
+
+        KeyAdapter recalculoListener = new KeyAdapter() {
+            @Override
+            public void keyReleased(java.awt.event.KeyEvent e) {
+                recalcularValores();
+            }
+        };
+        txtTiempoEnMeses.addKeyListener(recalculoListener);
+        txtTiempoEnDias.addKeyListener(recalculoListener);
+    }
+
+    private void recalcularValores() {
         try {
-            FormUtils.parseFecha(dcFechaInicio.getDate(), "Fecha de inicio");
-            if (cbCliente.getSelectedItem() == null) {
-                throw new IllegalArgumentException("Debe seleccionar un cliente.");
-            }
-            if (cbVivienda.getSelectedItem() == null) {
-                throw new IllegalArgumentException("Debe seleccionar una vivienda.");
-            }
-            // Validamos formatos numéricos
-            if (!txtTiempoEnMeses.getText().isEmpty()) {
-                FormUtils.parseInt(txtTiempoEnMeses.getText(), "Tiempo en meses");
-            }
-            if (!txtTiempoEnDias.getText().isEmpty()) {
-                FormUtils.parseInt(txtTiempoEnDias.getText(), "Tiempo en días");
-            }
-            if (!txtPrecioTotalEstimado.getText().isEmpty()) {
-                FormUtils.parseBigDecimalOrNull(txtPrecioTotalEstimado.getText(), "Precio total estimado");
+            LocalDate fechaInicio = obtenerFechaInicio();
+            if (fechaInicio == null) {
+                return;
             }
 
-            return true;
-        } catch (IllegalArgumentException ex) {
-            mostrarAdvertencia(ex.getMessage()); // Usamos el método de BaseDialog
+            int meses = parseInt(txtTiempoEnMeses.getText());
+            int dias = parseInt(txtTiempoEnDias.getText());
+
+            Vivienda vi = (Vivienda) cbVivienda.getSelectedItem();
+            if (vi != null) {
+                BigDecimal precioDia = vi.getPrecio_mensual().divide(BigDecimal.valueOf(30), 2, RoundingMode.HALF_UP);
+                BigDecimal total = precioDia.multiply(BigDecimal.valueOf(meses * 30L + dias));
+                txtPrecioTotalEstimado.setText(total.toPlainString());
+            }
+        } catch (Exception e) {
+            System.out.println("Error: " + e.getMessage());
+        }
+    }
+
+    private LocalDate obtenerFechaInicio() {
+        Date d = dcFechaInicio.getDate();
+        return d == null ? null : d.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+    }
+
+    private int parseInt(String s) {
+        try {
+            return Integer.parseInt(s.trim());
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    // ================= BaseDialog =================
+    @Override
+    protected boolean validarCampos() {
+        if (cbCliente.getSelectedItem() == null) {
+            FormUtils.mostrarAdvertencia(this, "Seleccione un cliente.");
             return false;
         }
+        if (cbVivienda.getSelectedItem() == null) {
+            FormUtils.mostrarAdvertencia(this, "Seleccione una vivienda.");
+            return false;
+        }
+        if (obtenerFechaInicio() == null) {
+            FormUtils.mostrarAdvertencia(this, "Seleccione una fecha de inicio.");
+            return false;
+        }
+        int meses = parseInt(txtTiempoEnMeses.getText());
+        int dias = parseInt(txtTiempoEnDias.getText());
+        if (meses == 0 && dias == 0) {
+            FormUtils.mostrarAdvertencia(this, "Indique una duración válida.");
+            return false;
+        }
+        return true;
     }
 
     @Override
     protected void guardarEntidad() throws Exception {
-        if (alquilerActual == null) {
-            alquilerActual = new Alquiler();
-        }
+        Cliente c = (Cliente) cbCliente.getSelectedItem();
+        Vivienda v = (Vivienda) cbVivienda.getSelectedItem();
+        LocalDate fechaInicio = obtenerFechaInicio();
+        int meses = parseInt(txtTiempoEnMeses.getText());
+        int dias = parseInt(txtTiempoEnDias.getText());
+        BigDecimal precio = new BigDecimal(txtPrecioTotalEstimado.getText().trim());
 
-        alquilerActual.setCliente((Cliente) cbCliente.getSelectedItem());
-        alquilerActual.setVivienda((Vivienda) cbVivienda.getSelectedItem());
-        alquilerActual.setFecha_inicio(FormUtils.parseFecha(dcFechaInicio.getDate(), "Fecha de inicio"));
-
-        // Manejo seguro de campos vacíos para números
-        String meses = txtTiempoEnMeses.getText().trim();
-        alquilerActual.setTiempo_meses(meses.isEmpty() ? 0 : Integer.parseInt(meses));
-
-        String dias = txtTiempoEnDias.getText().trim();
-        alquilerActual.setTiempo_dias(dias.isEmpty() ? 0 : Integer.parseInt(dias));
-
-        alquilerActual.setPrecio_total_estimado(FormUtils.parseBigDecimalOrNull(txtPrecioTotalEstimado.getText(), "Precio total estimado"));
-        alquilerActual.setEstado((String) cbEstado.getSelectedItem());
-
-        if (alquilerActual.getNumero_expediente() <= 0) {
-            alquilerService.crearAlquiler(alquilerActual);
+        if (alquilerEnEdicion == null) {
+            Alquiler nuevo = new Alquiler();
+            nuevo.setId_cliente(c.getId_cliente());
+            nuevo.setId_vivienda(v.getId_vivienda());
+            nuevo.setFecha_inicio(fechaInicio);
+            nuevo.setTiempo_meses(meses);
+            nuevo.setTiempo_dias(dias);
+            nuevo.setPrecio_total_estimado(precio);
+            alquilerService.crearAlquiler(nuevo);
+            FormUtils.mostrarInfo(this, "Alquiler creado correctamente.");
         } else {
-            alquilerService.actualizarAlquiler(alquilerActual);
+            alquilerEnEdicion.setId_cliente(c.getId_cliente());
+            alquilerEnEdicion.setId_vivienda(v.getId_vivienda());
+            alquilerEnEdicion.setFecha_inicio(fechaInicio);
+            alquilerEnEdicion.setTiempo_meses(meses);
+            alquilerEnEdicion.setTiempo_dias(dias);
+            alquilerEnEdicion.setPrecio_total_estimado(precio);
+            alquilerService.actualizarAlquiler(alquilerEnEdicion);
+            FormUtils.mostrarInfo(this, "Alquiler actualizado correctamente.");
         }
     }
 
@@ -164,13 +211,12 @@ public class AlquilerDialog extends BaseDialog {
         txtTiempoEnMeses = new javax.swing.JTextField();
         jLabel6 = new javax.swing.JLabel();
         txtTiempoEnDias = new javax.swing.JTextField();
-        cbEstado = new javax.swing.JComboBox<>();
-        jLabel7 = new javax.swing.JLabel();
         txtPrecioTotalEstimado = new javax.swing.JTextField();
         cbCliente = new javax.swing.JComboBox<>();
         cbVivienda = new javax.swing.JComboBox<>();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
+        setPreferredSize(new java.awt.Dimension(500, 350));
 
         btnGuardar.setText("Guardar");
         panelBotones.add(btnGuardar);
@@ -221,6 +267,7 @@ public class AlquilerDialog extends BaseDialog {
         gridBagConstraints.gridx = 1;
         gridBagConstraints.gridy = 2;
         gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.weightx = 1.0;
         panelCampos.add(dcFechaInicio, gridBagConstraints);
 
         jLabel5.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
@@ -237,6 +284,7 @@ public class AlquilerDialog extends BaseDialog {
         gridBagConstraints.gridx = 1;
         gridBagConstraints.gridy = 3;
         gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.weightx = 1.0;
         panelCampos.add(txtTiempoEnMeses, gridBagConstraints);
 
         jLabel6.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
@@ -253,40 +301,30 @@ public class AlquilerDialog extends BaseDialog {
         gridBagConstraints.gridx = 1;
         gridBagConstraints.gridy = 4;
         gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.weightx = 1.0;
         panelCampos.add(txtTiempoEnDias, gridBagConstraints);
 
-        cbEstado.setModel(new javax.swing.DefaultComboBoxModel<>(new String[] { "Activo", "Finalizado" }));
-        cbEstado.setToolTipText("");
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 1;
-        gridBagConstraints.gridy = 6;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
-        panelCampos.add(cbEstado, gridBagConstraints);
-
-        jLabel7.setFont(new java.awt.Font("Segoe UI", 1, 12)); // NOI18N
-        jLabel7.setText("Estado:");
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 6;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.EAST;
-        gridBagConstraints.insets = new java.awt.Insets(0, 10, 0, 10);
-        panelCampos.add(jLabel7, gridBagConstraints);
+        txtPrecioTotalEstimado.setColumns(20);
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 1;
         gridBagConstraints.gridy = 5;
         gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.weightx = 1.0;
         panelCampos.add(txtPrecioTotalEstimado, gridBagConstraints);
 
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 1;
         gridBagConstraints.gridy = 0;
         gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.weightx = 1.0;
         panelCampos.add(cbCliente, gridBagConstraints);
 
+        cbVivienda.setMaximumRowCount(20);
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 1;
         gridBagConstraints.gridy = 1;
         gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.weightx = 1.0;
         panelCampos.add(cbVivienda, gridBagConstraints);
 
         getContentPane().add(panelCampos, java.awt.BorderLayout.CENTER);
@@ -298,7 +336,6 @@ public class AlquilerDialog extends BaseDialog {
     private javax.swing.JButton btnCancelar;
     private javax.swing.JButton btnGuardar;
     private javax.swing.JComboBox<com.smartoccupation.modelo.Cliente> cbCliente;
-    private javax.swing.JComboBox<String> cbEstado;
     private javax.swing.JComboBox<com.smartoccupation.modelo.Vivienda> cbVivienda;
     private com.toedter.calendar.JDateChooser dcFechaInicio;
     private javax.swing.JLabel jLabel1;
@@ -307,7 +344,6 @@ public class AlquilerDialog extends BaseDialog {
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel5;
     private javax.swing.JLabel jLabel6;
-    private javax.swing.JLabel jLabel7;
     private javax.swing.JPanel panelBotones;
     private javax.swing.JPanel panelCampos;
     private javax.swing.JTextField txtPrecioTotalEstimado;

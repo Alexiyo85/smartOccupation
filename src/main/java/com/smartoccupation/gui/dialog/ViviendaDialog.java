@@ -19,7 +19,17 @@ public class ViviendaDialog extends BaseDialog {
         super(parent, modal ? Dialog.ModalityType.APPLICATION_MODAL : Dialog.ModalityType.MODELESS);
         this.viviendaService = viviendaService;
 
-        initComponents(); // init limpio sin botones
+        initComponents();
+
+        // INYECTAR los botones del formulario en BaseDialog
+        setBtnGuardar(this.btnGuardar);
+        setBtnCancelar(this.btnCancelar);
+
+        // Activar la lógica general de Guardar/Cancelar
+        configurarBotonesBase();
+
+        pack();
+        setLocationRelativeTo(parent);
     }
 
     // ===============================================================
