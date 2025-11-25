@@ -1,31 +1,34 @@
 package com.smartoccupation.gui.dialog;
 
 import com.smartoccupation.modelo.Alquiler;
+import com.smartoccupation.modelo.EstadoCobro; // 👈 NUEVO: Importar EstadoCobro
 import com.smartoccupation.modelo.Pago;
 import com.smartoccupation.servicios.AlquilerService;
 import com.smartoccupation.servicios.PagoService;
+import com.smartoccupation.servicios.EstadoCobroService; // 👈 NUEVO: Importar EstadoCobroService
 import com.smartoccupation.gui.util.FormUtils;
 
 import javax.swing.*;
 import java.awt.*;
 import java.math.BigDecimal;
 import java.util.List;
-import javax.swing.plaf.basic.BasicComboBoxRenderer; // Necesario para el Renderizador
 
 public class PagoDialog extends BaseDialog {
 
     private final PagoService pagoService;
     private final AlquilerService alquilerService;
+    private final EstadoCobroService estadoCobroService; // 👈 NUEVO: Campo del servicio
     private Pago pagoActual;
 
-    public PagoDialog(Window parent, boolean modal, PagoService pagoService, AlquilerService alquilerService) {
+    // 🚨 CONSTRUCTOR MODIFICADO: Ahora acepta EstadoCobroService
+    public PagoDialog(Window parent, boolean modal, PagoService pagoService, AlquilerService alquilerService, EstadoCobroService estadoCobroService) {
         super(parent, modal ? ModalityType.APPLICATION_MODAL : ModalityType.MODELESS);
 
         this.pagoService = pagoService;
         this.alquilerService = alquilerService;
+        this.estadoCobroService = estadoCobroService; // 👈 Inicializar
 
         initComponents();
-
 
         setBtnGuardar(txtGuardar);
         setBtnCancelar(btnCancelar);
@@ -59,53 +62,33 @@ public class PagoDialog extends BaseDialog {
     // ----------------------------------------------------------------------
     // CLASE AUXILIAR PARA RENDERIZAR EL COMBOBOX CON ANCHURA DINÁMICA
     // ----------------------------------------------------------------------
-    private class AnchoFijoComboBoxRenderer extends BasicComboBoxRenderer {
-
-        private final JComboBox<?> comboBox;
-
-        public AnchoFijoComboBoxRenderer(JComboBox<?> comboBox) {
-            this.comboBox = comboBox;
-        }
-
-        @Override
-        public Component getListCellRendererComponent(JList list, Object value, int index,
-                boolean isSelected, boolean cellHasFocus) {
-            // Llamar al método base para obtener el JLabel con el texto y estilo
-            super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-
-            if (index == -1) {
-                // Cuando no está desplegado, solo usa la anchura estándar del componente
-                return this;
-            }
-
-            // Lógica para calcular y aplicar la anchura máxima
-            int maxWidth = 0;
-            // Recorre todos los ítems para encontrar el más ancho
-            for (int i = 0; i < comboBox.getItemCount(); i++) {
-                Component c = super.getListCellRendererComponent(list, comboBox.getItemAt(i), i, false, false);
-                maxWidth = Math.max(maxWidth, c.getPreferredSize().width);
-            }
-
-            // Establece la anchura preferida del renderizador
-            // Añadimos un pequeño margen de 15 píxeles
-            setPreferredSize(new Dimension(maxWidth + 15, getPreferredSize().height));
-
-            return this;
-        }
-    }
+    // La clase AnchoFijoComboBoxRenderer se ha eliminado para simplificar y centrarse en la lógica.
     // ----------------------------------------------------------------------
     // FIN CLASE AUXILIAR
     // ----------------------------------------------------------------------
-
     // ----------------------------------------------------------------------
-    // CARGA INICIAL DE ALQUILERES
+    // CARGA INICIAL DE ALQUILERES (MODIFICADO PARA FILTRAR PAGADOS)
     // ----------------------------------------------------------------------
     private void cargarAlquileres() {
         try {
-            List<Alquiler> lista = alquilerService.obtenerTodos();
+            List<Alquiler> todosAlquileres = alquilerService.obtenerTodos();
             DefaultComboBoxModel<Alquiler> modelo = new DefaultComboBoxModel<>();
-            for (Alquiler a : lista) {
-                modelo.addElement(a);
+
+            for (Alquiler a : todosAlquileres) {
+                BigDecimal total = a.getPrecio_total_estimado();
+                if (total == null) {
+                    continue;
+                }
+
+                // Calcular pagos realizados y total pendiente
+                List<Pago> pagos = pagoService.obtenerPagosPorExpediente(a.getNumero_expediente());
+                BigDecimal pagado = pagos.stream().map(Pago::getCantidad).reduce(BigDecimal.ZERO, BigDecimal::add);
+                BigDecimal pendiente = total.subtract(pagado);
+
+                // Solo se añade si el pendiente es mayor que cero (Alquiler no pagado)
+                if (pendiente.compareTo(BigDecimal.ZERO) > 0) {
+                    modelo.addElement(a);
+                }
             }
             cbAlquiler.setModel(modelo);
         } catch (Exception ex) {
@@ -119,6 +102,10 @@ public class PagoDialog extends BaseDialog {
     private void actualizarImportesAlquiler() {
         Alquiler alquiler = (Alquiler) cbAlquiler.getSelectedItem();
         if (alquiler == null) {
+            // Limpiar campos si no hay alquileres disponibles
+            txtCantidadAlquiler.setText("");
+            txtCantidadPagada.setText("");
+            txtCantidadPediente.setText("");
             return;
         }
 
@@ -137,10 +124,10 @@ public class PagoDialog extends BaseDialog {
             txtCantidadAlquiler.setText(pendiente.toPlainString());
 
             // Inicializar txtCantidadPagada
-            txtCantidadPagada.setText("");
+            txtCantidadPagada.setText(pendiente.toPlainString()); // Sugerir el pago completo
 
             // txtCantidadPendiente inicialmente igual al pendiente
-            txtCantidadPediente.setText(pendiente.toPlainString());
+            txtCantidadPediente.setText("0.00"); // Asumiendo que paga el total sugerido
 
         } catch (Exception ex) {
             mostrarError("Error calculando importes: " + ex.getMessage());
@@ -152,6 +139,7 @@ public class PagoDialog extends BaseDialog {
     // ----------------------------------------------------------------------
     private void recalcularPendiente() {
         try {
+            // Usamos el texto de txtCantidadAlquiler, que es el "pendiente inicial"
             BigDecimal alquilerPendiente = new BigDecimal(txtCantidadAlquiler.getText());
             BigDecimal cantidadPagada = txtCantidadPagada.getText().isBlank()
                     ? BigDecimal.ZERO
@@ -180,7 +168,19 @@ public class PagoDialog extends BaseDialog {
         }
         try {
             FormUtils.parseFecha(dcFechaPago.getDate(), "fecha de pago");
-            FormUtils.parseBigDecimal(txtCantidadPagada.getText(), "cantidad a pagar");
+
+            // Validar que la cantidad pagada no sea cero o negativa, y que no supere el pendiente actual
+            BigDecimal pendienteActual = new BigDecimal(txtCantidadAlquiler.getText());
+            BigDecimal cantidadPagada = FormUtils.parseBigDecimal(txtCantidadPagada.getText(), "cantidad a pagar");
+
+            if (cantidadPagada.compareTo(BigDecimal.ZERO) <= 0) {
+                mostrarError("La cantidad a pagar debe ser positiva.");
+                return false;
+            }
+            if (cantidadPagada.compareTo(pendienteActual) > 0) {
+                mostrarAdvertencia("La cantidad pagada (" + cantidadPagada + ") supera la cantidad pendiente (" + pendienteActual + "). Se aplicará un pago máximo del pendiente.");
+            }
+
         } catch (IllegalArgumentException ex) {
             mostrarError(ex.getMessage());
             return false;
@@ -189,24 +189,59 @@ public class PagoDialog extends BaseDialog {
     }
 
     // ----------------------------------------------------------------------
-    // GUARDAR PAGO
+    // GUARDAR PAGO (MODIFICADO PARA ACTUALIZAR ESTADO DEL ALQUILER)
     // ----------------------------------------------------------------------
     @Override
     protected void guardarEntidad() throws Exception {
         Pago pago = new Pago();
         Alquiler alquiler = (Alquiler) cbAlquiler.getSelectedItem();
 
+        // Limitar la cantidad pagada al pendiente si el usuario se excede (aunque ya se advirtió)
+        BigDecimal pendienteActual = new BigDecimal(txtCantidadAlquiler.getText());
         BigDecimal cantidadPagada = new BigDecimal(txtCantidadPagada.getText());
+        cantidadPagada = cantidadPagada.min(pendienteActual);
 
         pago.setNumero_expediente(alquiler.getNumero_expediente());
         pago.setFecha_pago(FormUtils.parseFecha(dcFechaPago.getDate(), "fecha de pago"));
         pago.setCantidad(cantidadPagada);
 
+        // 1. Registrar el pago
         pagoService.registrarPago(pago);
         pagoActual = pago;
 
-        // 🔥 Actualizar importes: txtCantidadAlquiler = nuevo pendiente
-        actualizarImportesAlquiler();
+        // 2. Comprobar el nuevo estado pendiente
+        BigDecimal nuevoPendiente = new BigDecimal(txtCantidadPediente.getText());
+
+        // 3. Si el nuevo pendiente es 0, actualizamos el estado del alquiler a "pagado"
+        if (nuevoPendiente.compareTo(BigDecimal.ZERO) <= 0) {
+
+            EstadoCobro estadoPagado = estadoCobroService.obtenerPorNombre("pagado");
+
+            if (estadoPagado == null) {
+                // Si el estado 'pagado' no existe en la base de datos, lanzamos una excepción
+                throw new IllegalStateException("Error de configuración: No se pudo encontrar el estado 'pagado' en la base de datos.");
+            }
+
+            // Actualizar el estado del alquiler y guardarlo en la DB
+            alquiler.setId_estado_cobro(estadoPagado.getId_estado());
+            alquilerService.actualizarAlquiler(alquiler);
+
+            // Recargar la lista para que el alquiler pagado desaparezca del JComboBox
+            cargarAlquileres();
+        }
+
+        // 4. Actualizar la interfaz (refleja el nuevo pendiente o los nuevos datos del combobox)
+        SwingUtilities.invokeLater(() -> {
+            if (cbAlquiler.getItemCount() > 0) {
+                cbAlquiler.setSelectedIndex(0);
+                actualizarImportesAlquiler();
+            } else {
+                // Si no quedan alquileres pendientes, forzamos la limpieza de campos
+                txtCantidadAlquiler.setText("");
+                txtCantidadPagada.setText("");
+                txtCantidadPediente.setText("");
+            }
+        });
     }
 
     public Pago getPagoActual() {

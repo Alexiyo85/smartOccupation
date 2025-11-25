@@ -6,15 +6,18 @@ import com.smartoccupation.modelo.Cliente;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableRowSorter; // 👈 NUEVO: Importación necesaria
 import java.awt.*;
 import java.util.List;
 
 public class ClientePanel extends javax.swing.JPanel {
 
     private final ClienteService clienteService;
+    // 1. 👈 NUEVO: Campo para gestionar el filtro/ordenación de la tabla
+    private TableRowSorter<DefaultTableModel> sorter;
 
 // ============================
-//        CONSTRUCTOR
+//         CONSTRUCTOR
 // ============================
     public ClientePanel(ClienteService clienteService) {
         this.clienteService = clienteService;
@@ -24,7 +27,7 @@ public class ClientePanel extends javax.swing.JPanel {
     }
 
 // ===========================================
-//  CARGA LA TABLA CON LOS CLIENTES EXISTENTES
+//  CARGA LA TABLA CON LOS CLIENTES EXISTENTES (MODIFICADO)
 // ===========================================
     private void cargarTablaClientes() {
 
@@ -32,7 +35,7 @@ public class ClientePanel extends javax.swing.JPanel {
 
         String[] columnas = {
             "ID", "Nombre", "Primer Apellido", "Segundo Apellido",
-            "DNI", "Teléfono", "Email", "Dirección" , "Ciudad", "Provincia",
+            "DNI", "Teléfono", "Email", "Dirección", "Ciudad", "Provincia",
             "Código Postal"
         };
 
@@ -53,17 +56,23 @@ public class ClientePanel extends javax.swing.JPanel {
             datos[i][10] = c.getCodigo_postal();
         }
 
-        // Evitamos que la tabla sea editable directamente
-        tablaClientes.setModel(new DefaultTableModel(datos, columnas) {
+        // 2. Creamos el modelo
+        DefaultTableModel modelo = new DefaultTableModel(datos, columnas) {
             @Override
             public boolean isCellEditable(int row, int column) {
                 return false;
             }
-        });
+        };
+
+        tablaClientes.setModel(modelo);
+
+        // 3. 👈 NUEVO: Creamos y asignamos el sorter al modelo de la tabla
+        sorter = new TableRowSorter<>(modelo);
+        tablaClientes.setRowSorter(sorter);
     }
 
 // ============================================
-//       CONFIGURACIÓN DE LOS BOTONES
+//       CONFIGURACIÓN DE LOS BOTONES
 // ============================================
     private void configurarEventos() {
 
@@ -77,8 +86,12 @@ public class ClientePanel extends javax.swing.JPanel {
                 JOptionPane.showMessageDialog(this, "Seleccione un cliente.", "Aviso", JOptionPane.WARNING_MESSAGE);
                 return;
             }
-            // ID está en la columna 0
-            int id = (int) tablaClientes.getValueAt(fila, 0);
+            // Importante: Si se usa sorter, el ID debe obtenerse del modelo subyacente.
+            // Para obtener la fila real del modelo subyacente:
+            int modeloFila = tablaClientes.convertRowIndexToModel(fila);
+
+            // ID está en la columna 0 del modelo subyacente
+            int id = (int) tablaClientes.getModel().getValueAt(modeloFila, 0);
             Cliente cliente = clienteService.obtenerCliente(id);
             abrirDialogoCliente(cliente);
         });
@@ -104,36 +117,33 @@ public class ClientePanel extends javax.swing.JPanel {
     }
 
 // ===========================
-//      FILTRO DE BÚSQUEDA
+//      FILTRO DE BÚSQUEDA (MODIFICADO Y CORREGIDO)
 // ===========================
     private void filtrarTabla() {
-        // Nota: Un filtro manual simple. Para tablas grandes usar TableRowSorter es mejor.
-        String busqueda = txtBuscarCliente.getText().trim().toLowerCase();
-        DefaultTableModel modelo = (DefaultTableModel) tablaClientes.getModel();
+        String busqueda = txtBuscarCliente.getText().trim();
 
-        // Restablecemos el alto de todas las filas antes de filtrar (si usamos el truco de ocultar)
-        // Nota: Ocultar filas con setRowHeight es un "truco" visual pero no quita los datos del modelo.
-        // Si la tabla es pequeña funciona, pero idealmente usarías un TableRowSorter.
-        for (int i = 0; i < modelo.getRowCount(); i++) {
-            boolean coincide = false;
-            // Si la búsqueda está vacía, mostrar todo
-            if (busqueda.isEmpty()) {
-                coincide = true;
-            } else {
-                for (int j = 1; j < modelo.getColumnCount(); j++) {
-                    Object celda = modelo.getValueAt(i, j);
-                    if (celda != null && celda.toString().toLowerCase().contains(busqueda)) {
-                        coincide = true;
-                        break;
-                    }
-                }
+        if (sorter == null) {
+            // Evitar fallo si se llama antes de cargar la tabla.
+            return;
+        }
+
+        if (busqueda.isEmpty()) {
+            // Si el campo está vacío, no hay filtro.
+            sorter.setRowFilter(null);
+        } else {
+            try {
+                // 4. 👈 NUEVO: Aplicar el filtro usando una expresión regular.
+                // "(?i)" ignora mayúsculas/minúsculas.
+                sorter.setRowFilter(RowFilter.regexFilter("(?i)" + busqueda));
+            } catch (java.util.regex.PatternSyntaxException e) {
+                // Si la expresión es inválida (ej: un solo paréntesis), simplemente no aplicamos filtro.
+                sorter.setRowFilter(null);
             }
-            tablaClientes.setRowHeight(i, coincide ? 20 : 0);
         }
     }
 
 // ===========================
-//    ABRIR DIÁLOGO CLIENTE
+//    ABRIR DIÁLOGO CLIENTE
 // ===========================
     private void abrirDialogoCliente(Cliente cliente) {
         // Obtenemos la ventana padre (sea JFrame o JDialog)
@@ -153,10 +163,11 @@ public class ClientePanel extends javax.swing.JPanel {
 
         // Recargar la tabla al cerrar el diálogo
         cargarTablaClientes();
+        filtrarTabla(); // Aplicar el filtro si había alguno
     }
 
 // ===========================
-//     ELIMINAR CLIENTE
+//     ELIMINAR CLIENTE
 // ===========================
     private void eliminarCliente() {
         int fila = tablaClientes.getSelectedRow();
@@ -166,10 +177,13 @@ public class ClientePanel extends javax.swing.JPanel {
             return;
         }
 
-        int id = (int) tablaClientes.getValueAt(fila, 0);
+        // Importante: Debemos obtener el ID de la fila en el modelo, no en la vista,
+        // ya que el sorter podría haber reordenado o filtrado la vista.
+        int modeloFila = tablaClientes.convertRowIndexToModel(fila);
+        int id = (int) tablaClientes.getModel().getValueAt(modeloFila, 0);
 
         // Confirmación un poco más detallada
-        String nombre = (String) tablaClientes.getValueAt(fila, 1);
+        String nombre = (String) tablaClientes.getModel().getValueAt(modeloFila, 1);
 
         int confirm = JOptionPane.showConfirmDialog(
                 this,

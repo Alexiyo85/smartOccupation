@@ -41,11 +41,11 @@ public class PagoPanel extends javax.swing.JPanel {
     }
 
     private void setupEstadoFilter() {
-        // Añadimos opciones: Todos / Pendiente / Pagado / Retrasado
+        // Añadimos opciones: Todos / Pendiente / Pagado 
         cbEstadoFilter.addItem("Todos");
+        // Aseguramos que los nombres coincidan con los de la BBDD (si existen)
         cbEstadoFilter.addItem("pendiente");
         cbEstadoFilter.addItem("pagado");
-        cbEstadoFilter.addItem("retrasado");
 
         // Insertar al inicio del panel jPanel1 (autogenerado) -> asumimos jPanel1 es FlowLayout
         jPanel1.add(new JLabel("Estado:"));
@@ -146,18 +146,19 @@ public class PagoPanel extends javax.swing.JPanel {
             Object alquilerLabel = (alq != null) ? ("#" + alq.getNumero_expediente()) : p.getNumero_expediente();
 
             modelo.addRow(new Object[]{
-                    p.getId_pago(),
-                    alquilerLabel,
-                    fechaStr,
-                    cantDouble,
-                    estadoNombre
+                p.getId_pago(),
+                alquilerLabel,
+                fechaStr,
+                cantDouble,
+                estadoNombre // 👈 Columna de Estado añadida
             });
         }
     }
 
     private void abrirDialogNuevoPago() {
         Window parent = SwingUtilities.getWindowAncestor(this);
-        PagoDialog dialog = new PagoDialog(parent, true, pagoService, alquilerService);
+        // 🚨 CAMBIO AQUÍ: Se pasa el estadoCobroService al constructor de PagoDialog
+        PagoDialog dialog = new PagoDialog(parent, true, pagoService, alquilerService, estadoCobroService); 
         dialog.setLocationRelativeTo(this);
         dialog.setVisible(true);
 
@@ -220,10 +221,14 @@ public class PagoPanel extends javax.swing.JPanel {
 
         jLabel1.setText("Desde:");
         jPanel1.add(jLabel1);
+
+        dcDesde.setDateFormatString("dd/MM/yyyy");
         jPanel1.add(dcDesde);
 
         jLabel2.setText("Hasta:");
         jPanel1.add(jLabel2);
+
+        dcHasta.setDateFormatString("dd/MM/yyyy");
         jPanel1.add(dcHasta);
 
         jPanel1.add(cbEstadoFilter);
@@ -246,17 +251,17 @@ public class PagoPanel extends javax.swing.JPanel {
 
         tablaPagos.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
-                {null, null, null, null},
-                {null, null, null, null},
-                {null, null, null, null},
-                {null, null, null, null}
+                {null, null, null, null, null},
+                {null, null, null, null, null},
+                {null, null, null, null, null},
+                {null, null, null, null, null}
             },
             new String [] {
-                "ID Pago", "Nº Expediente", "Fecha Pago", "Cantidad"
+                "ID Pago", "Nº Expediente", "Fecha Pago", "Cantidad", "Estado"
             }
         ) {
             Class[] types = new Class [] {
-                java.lang.Integer.class, java.lang.Integer.class, java.lang.String.class, java.lang.Double.class
+                java.lang.Integer.class, java.lang.Integer.class, java.lang.String.class, java.lang.Double.class, java.lang.Object.class
             };
 
             public Class getColumnClass(int columnIndex) {

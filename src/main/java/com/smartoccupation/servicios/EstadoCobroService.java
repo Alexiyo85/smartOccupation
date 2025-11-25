@@ -20,4 +20,14 @@ public class EstadoCobroService {
     public EstadoCobro obtenerPorId(int id) {
         return dao.obtenerPorId(id);
     }
+    
+    /**
+     * Obtiene un EstadoCobro por su nombre.
+     * Este método llama al DAO para usar la funcionalidad ya implementada.
+     * @param nombre El nombre del estado (e.g., "pagado").
+     * @return El objeto EstadoCobro, o null si no se encuentra.
+     */
+    public EstadoCobro obtenerPorNombre(String nombre) { // 👈 MÉTODO AÑADIDO
+        return dao.obtenerPorNombre(nombre);
+    }
 }
