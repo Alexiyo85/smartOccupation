@@ -102,26 +102,47 @@ public class AlquilerDialog extends BaseDialog {
         };
         txtTiempoEnMeses.addKeyListener(recalculoListener);
         txtTiempoEnDias.addKeyListener(recalculoListener);
+        
+        // Agregar listener para que el cambio de vivienda también recalcule el precio
+        cbVivienda.addActionListener(e -> recalcularValores());
     }
 
     private void recalcularValores() {
         try {
+            // 1. Validar inputs básicos
             LocalDate fechaInicio = obtenerFechaInicio();
-            if (fechaInicio == null) {
+            Vivienda vi = (Vivienda) cbVivienda.getSelectedItem();
+            if (fechaInicio == null || vi == null) {
                 return;
             }
 
             int meses = parseInt(txtTiempoEnMeses.getText());
             int dias = parseInt(txtTiempoEnDias.getText());
+            BigDecimal precioMensual = vi.getPrecio_mensual();
+            
+            // 🟢 CORRECCIÓN DE PRECISIÓN EN LA GUI
+            
+            // 2. Precio por meses completos: EXACTO
+            BigDecimal precioPorMeses = precioMensual.multiply(BigDecimal.valueOf(meses));
 
-            Vivienda vi = (Vivienda) cbVivienda.getSelectedItem();
-            if (vi != null) {
-                BigDecimal precioDia = vi.getPrecio_mensual().divide(BigDecimal.valueOf(30), 2, RoundingMode.HALF_UP);
-                BigDecimal total = precioDia.multiply(BigDecimal.valueOf(meses * 30L + dias));
-                txtPrecioTotalEstimado.setText(total.toPlainString());
-            }
+            // 3. Precio diario: Usar alta precisión (8 decimales)
+            BigDecimal precioDiario = precioMensual.divide(
+                BigDecimal.valueOf(30), 
+                8, // Alta precisión para evitar errores en la multiplicación
+                RoundingMode.HALF_UP
+            ); 
+
+            // 4. Precio por días extra
+            BigDecimal precioPorDias = precioDiario.multiply(BigDecimal.valueOf(dias));
+
+            // 5. Total y Redondeo FINAL a 2 decimales para mostrar en la GUI
+            BigDecimal total = precioPorMeses.add(precioPorDias)
+                .setScale(2, RoundingMode.HALF_UP); 
+            
+            txtPrecioTotalEstimado.setText(total.toPlainString());
         } catch (Exception e) {
-            System.out.println("Error: " + e.getMessage());
+            // Se puede ignorar errores de parseo mientras el usuario escribe
+            // System.out.println("Error: " + e.getMessage()); 
         }
     }
 
@@ -169,7 +190,8 @@ public class AlquilerDialog extends BaseDialog {
         LocalDate fechaInicio = obtenerFechaInicio();
         int meses = parseInt(txtTiempoEnMeses.getText());
         int dias = parseInt(txtTiempoEnDias.getText());
-        BigDecimal precio = new BigDecimal(txtPrecioTotalEstimado.getText().trim());
+        
+        BigDecimal precioTotal = null; 
 
         if (alquilerEnEdicion == null) {
             Alquiler nuevo = new Alquiler();
@@ -178,7 +200,7 @@ public class AlquilerDialog extends BaseDialog {
             nuevo.setFecha_inicio(fechaInicio);
             nuevo.setTiempo_meses(meses);
             nuevo.setTiempo_dias(dias);
-            nuevo.setPrecio_total_estimado(precio);
+            nuevo.setPrecio_total_estimado(precioTotal); // Se envía NULL o el valor calculado
             alquilerService.crearAlquiler(nuevo);
             FormUtils.mostrarInfo(this, "Alquiler creado correctamente.");
         } else {
@@ -187,12 +209,14 @@ public class AlquilerDialog extends BaseDialog {
             alquilerEnEdicion.setFecha_inicio(fechaInicio);
             alquilerEnEdicion.setTiempo_meses(meses);
             alquilerEnEdicion.setTiempo_dias(dias);
-            alquilerEnEdicion.setPrecio_total_estimado(precio);
+            
+            BigDecimal precioMostrado = new BigDecimal(txtPrecioTotalEstimado.getText().trim());
+            alquilerEnEdicion.setPrecio_total_estimado(precioMostrado);
+            
             alquilerService.actualizarAlquiler(alquilerEnEdicion);
             FormUtils.mostrarInfo(this, "Alquiler actualizado correctamente.");
         }
     }
-
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {

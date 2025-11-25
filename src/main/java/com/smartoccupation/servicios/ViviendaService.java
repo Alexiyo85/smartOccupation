@@ -9,7 +9,9 @@ public class ViviendaService {
     private final ViviendaDAO viviendaDAO;
 
     public ViviendaService(ViviendaDAO viviendaDAO) {
-        if (viviendaDAO == null) throw new IllegalArgumentException("DAO no puede ser nulo");
+        if (viviendaDAO == null) {
+            throw new IllegalArgumentException("DAO no puede ser nulo");
+        }
         this.viviendaDAO = viviendaDAO;
     }
 
@@ -21,9 +23,15 @@ public class ViviendaService {
         return viviendaDAO.actualizar(vivienda);
     }
 
+    /**
+     * Elimina la vivienda solo si su estado es "disponible".
+     */
     public boolean eliminarVivienda(int idVivienda) {
         Vivienda v = viviendaDAO.obtenerPorId(idVivienda);
-        if (v == null) return false;
+        if (v == null) {
+            return false;
+        }
+        // Lógica de negocio: bloquea la eliminación si no está "disponible"
         if (!v.getEstado().equals("disponible")) {
             throw new IllegalStateException("No se puede eliminar una vivienda que no esté disponible");
         }

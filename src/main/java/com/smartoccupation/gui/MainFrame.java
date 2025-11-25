@@ -49,8 +49,8 @@ public class MainFrame extends JFrame {
         panelClientes = new ClientePanel(clienteService);
         panelViviendas = new ViviendaPanel(viviendaService);
         panelAlquileres = new AlquilerPanel(alquilerService, clienteService, viviendaService);
-        panelPagos = new PagoPanel(pagoService, alquilerService);
-        panelEstadosCobro = new EstadoCobroPanel(pagoService, alquilerService, estadoCobroService);
+        panelPagos = new PagoPanel(pagoService, alquilerService, estadoCobroService);
+        panelEstadosCobro = new EstadoCobroPanel( alquilerService, pagoService);
 
         // Añadir paneles a las pestañas
         tabbedPane.addTab("Clientes", panelClientes);

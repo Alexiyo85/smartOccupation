@@ -13,6 +13,7 @@ public class ClienteService {
     private final AlquilerDAO alquilerDAO;
 
     public ClienteService(ClienteDAO clienteDAO, AlquilerDAO alquilerDAO) {
+        // Se asume que la validación de nulos de los DAOs se realiza aquí si es necesario
         this.clienteDAO = clienteDAO;
         this.alquilerDAO = alquilerDAO;
     }
@@ -29,7 +30,11 @@ public class ClienteService {
         return clienteDAO.actualizar(cliente);
     }
 
+    /**
+     * Elimina el cliente solo si no tiene alquileres activos.
+     */
     public boolean eliminarCliente(int idCliente) {
+        // Lógica de negocio: usa AlquilerDAO para verificar si existen relaciones
         List<Alquiler> alquileres = alquilerDAO.obtenerPorCliente(idCliente);
         if (!alquileres.isEmpty()) {
             throw new IllegalStateException("No se puede eliminar cliente con alquileres activos");

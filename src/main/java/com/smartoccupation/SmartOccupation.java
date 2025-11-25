@@ -28,10 +28,9 @@ public class SmartOccupation {
         // Crear servicios con inyección de dependencias
         ClienteService clienteService = new ClienteService(clienteDAO, alquilerDAO);
         ViviendaService viviendaService = new ViviendaService(viviendaDAO);
-        AlquilerService alquilerService = new AlquilerService(alquilerDAO, viviendaDAO, estadoCobroDAO);
+        AlquilerService alquilerService = new AlquilerService(alquilerDAO, viviendaDAO, estadoCobroDAO, clienteDAO);
 
-        // 🔥 CORREGIDO: ahora se envían los 3 DAOs necesarios
-        PagoService pagoService = new PagoService(pagoDAO, alquilerDAO, estadoCobroDAO);
+        PagoService pagoService = new PagoService(pagoDAO);
 
         EstadoCobroService estadoCobroService = new EstadoCobroService(estadoCobroDAO);
 

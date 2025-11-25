@@ -17,6 +17,7 @@ public class AlquilerPanel extends JPanel {
     private final ClienteService clienteService;
     private final ViviendaService viviendaService;
 
+    // Dentro de AlquilerPanel.java
     public AlquilerPanel(AlquilerService alquilerService,
             ClienteService clienteService,
             ViviendaService viviendaService) {
@@ -26,6 +27,9 @@ public class AlquilerPanel extends JPanel {
 
         initComponents();
         cargarTabla();
+
+        // 🟢 Corrección para habilitar la tabla si initComponents la deshabilitó
+        tablaAlquiler.setEnabled(true);
 
         iniciarEventos();
     }
@@ -104,7 +108,9 @@ public class AlquilerPanel extends JPanel {
         for (Alquiler a : lista) {
             model.addRow(new Object[]{
                 a.getNumero_expediente(),
-                a.getCliente() != null ? a.getCliente().getNombre() : a.getId_cliente(),
+                a.getCliente() != null
+                ? a.getCliente().getNombre() + " " + a.getCliente().getPrimer_apellido() + " " + a.getCliente().getSegundo_apellido()
+                : a.getId_cliente(),
                 a.getVivienda() != null ? a.getVivienda().getDireccion() : a.getId_vivienda(),
                 a.getFecha_inicio(),
                 a.getTiempo_meses(),

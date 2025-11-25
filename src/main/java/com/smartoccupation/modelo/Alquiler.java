@@ -27,6 +27,7 @@ public class Alquiler {
 
     private Cliente cliente;                   // Objeto cliente asociado
     private Vivienda vivienda;                 // Objeto vivienda asociado
+    private EstadoCobro estadoCobro;
 
     // -------------------------------
     // Constructores
@@ -185,6 +186,14 @@ public class Alquiler {
         }
     }
 
+    public EstadoCobro getEstadoCobro() {
+        return estadoCobro;
+    }
+
+    public void setEstadoCobro(EstadoCobro estadoCobro) {
+        this.estadoCobro = estadoCobro;
+    }
+
     // Método auxiliar para mostrar nombre completo del cliente
     public String getNombreCliente() {
         if (cliente != null) {
@@ -202,12 +211,31 @@ public class Alquiler {
         }
     }
 
-    public void calcularPrecioTotal(BigDecimal precioDiario) {
-        if (precioDiario == null || precioDiario.compareTo(BigDecimal.ZERO) < 0) {
-            throw new IllegalArgumentException("El precio diario debe ser mayor o igual a cero");
+    // Alquiler.java (Método calcularPrecioTotal)
+    public void calcularPrecioTotal(BigDecimal precioMensual) {
+        if (precioMensual == null || precioMensual.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("El precio mensual debe ser mayor o igual a cero");
         }
-        int totalDias = tiempo_dias + tiempo_meses * 30; // Aproximación: mes = 30 días
-        this.precio_total_estimado = precioDiario.multiply(BigDecimal.valueOf(totalDias));
+
+        // 1. Calcular la parte del precio por meses completos
+        BigDecimal precioPorMeses = precioMensual.multiply(BigDecimal.valueOf(tiempo_meses));
+
+        // 2. Calcular el precio diario (con alta precisión)
+        // Usamos una escala de 8 para el cálculo del precio diario para minimizar errores intermedios
+        BigDecimal precioDiario = precioMensual.divide(
+                BigDecimal.valueOf(30),
+                8, // Alta precisión para la división
+                BigDecimal.ROUND_HALF_UP
+        );
+
+        // 3. Calcular la parte del precio por días extra
+        BigDecimal precioPorDias = precioDiario.multiply(BigDecimal.valueOf(tiempo_dias));
+
+        // 4. Sumar ambos componentes
+        BigDecimal totalSinRedondear = precioPorMeses.add(precioPorDias);
+
+        // 5. Redondear el resultado final a 2 decimales (moneda)
+        this.precio_total_estimado = totalSinRedondear.setScale(2, BigDecimal.ROUND_HALF_UP);
     }
 
     // -------------------------------
@@ -220,22 +248,31 @@ public class Alquiler {
     }
 
     // Mantén tu toString() completo para depuración
+    // Dentro de com.smartoccupation.modelo.Alquiler.java
     @Override
     public String toString() {
-        return "Alquiler{"
-                + "numero_expediente=" + numero_expediente
-                + ", fecha_inicio=" + fecha_inicio
-                + ", tiempo_meses=" + tiempo_meses
-                + ", tiempo_dias=" + tiempo_dias
-                + ", fecha_fin_estimada=" + fecha_fin_estimada
-                + ", precio_total_estimado=" + precio_total_estimado
-                + ", id_cliente=" + id_cliente
-                + ", id_vivienda=" + id_vivienda
-                + ", id_estado_cobro=" + id_estado_cobro
-                + ", estado='" + estado + '\''
-                + ", cliente=" + (cliente != null ? cliente.getNombre() + " " + cliente.getPrimer_apellido() + " " + cliente.getSegundo_apellido() : "null")
-                + ", vivienda=" + (vivienda != null ? vivienda.getCodigo_referencia() : "null")
-                + '}';
+        // 1. Construir clienteNombre con los tres campos
+        String clienteNombre;
+        if (cliente != null) {
+            // Mejorada: Usar String.format para una construcción más limpia
+            clienteNombre = String.format("%s %s %s",
+                    cliente.getNombre(),
+                    cliente.getPrimer_apellido(),
+                    cliente.getSegundo_apellido());
+        } else {
+            clienteNombre = "ID Cliente: " + id_cliente;
+        }
+
+        // 2. Construir viviendaDireccion
+        String viviendaDireccion = (vivienda != null)
+                ? vivienda.getDireccion()
+                : "ID Vivienda: " + id_vivienda;
+
+        // 3. Devolver la cadena final combinada
+        return String.format("[Exp. %d] %s - %s",
+                numero_expediente,
+                clienteNombre,
+                viviendaDireccion);
     }
 
 }
