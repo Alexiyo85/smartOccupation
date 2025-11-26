@@ -3,8 +3,7 @@ package smartoccupationTest.dao;
 import com.smartoccupation.dao.PagoDAO;
 import com.smartoccupation.modelo.Pago;
 import com.smartoccupation.utilidades.ConexionBBDD;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.mockito.MockedStatic;
 
 import java.math.BigDecimal;
@@ -13,113 +12,167 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
-public class PagoDAOTest {
+class PagoDAOTest {
 
     private PagoDAO dao;
-    private Connection connection;
-    private PreparedStatement ps;
-    private ResultSet rs;
+    private Connection mockConn;
+    private PreparedStatement mockPs;
+    private ResultSet mockRs;
+    private MockedStatic<ConexionBBDD> conexionMock;
 
     @BeforeEach
     void setUp() {
         dao = new PagoDAO();
-        connection = mock(Connection.class);
-        ps = mock(PreparedStatement.class);
-        rs = mock(ResultSet.class);
+        mockConn = mock(Connection.class);
+        mockPs = mock(PreparedStatement.class);
+        mockRs = mock(ResultSet.class);
+
+        conexionMock = mockStatic(ConexionBBDD.class);
+        conexionMock.when(ConexionBBDD::conectar).thenReturn(mockConn);
     }
 
-    @Test
-    void testInsertarExitoso() throws Exception {
+    @AfterEach
+    void tearDown() {
+        conexionMock.close();
+    }
+
+    private Pago crearPago() {
         Pago pago = new Pago();
         pago.setNumero_expediente(1);
-        pago.setFecha_pago(LocalDate.of(2025, 11, 25));
-        pago.setCantidad(BigDecimal.valueOf(100));
-
-        when(connection.prepareStatement(anyString(), eq(Statement.RETURN_GENERATED_KEYS))).thenReturn(ps);
-        when(ps.executeUpdate()).thenReturn(1);
-        when(ps.getGeneratedKeys()).thenReturn(rs);
-        when(rs.next()).thenReturn(true);
-        when(rs.getInt(1)).thenReturn(10);
-
-        try (MockedStatic<ConexionBBDD> conexionMock = mockStatic(ConexionBBDD.class)) {
-            conexionMock.when(ConexionBBDD::conectar).thenReturn(connection);
-
-            boolean resultado = dao.insertar(pago);
-            assertThat(resultado).isTrue();
-            assertThat(pago.getId_pago()).isEqualTo(10);
-        }
+        pago.setFecha_pago(LocalDate.of(2025, 11, 26));
+        pago.setCantidad(BigDecimal.valueOf(150));
+        return pago;
     }
 
-    @Test
-    void testObtenerTodos() throws Exception {
-        when(connection.prepareStatement(anyString())).thenReturn(ps);
-        when(ps.executeQuery()).thenReturn(rs);
-        when(rs.next()).thenReturn(true, false);
+    private void mockPagoResultSet(ResultSet rs) throws SQLException {
         when(rs.getInt("id_pago")).thenReturn(1);
-        when(rs.getInt("numero_expediente")).thenReturn(100);
-        when(rs.getDate("fecha_pago")).thenReturn(Date.valueOf("2025-11-25"));
-        when(rs.getBigDecimal("cantidad")).thenReturn(BigDecimal.valueOf(200));
+        when(rs.getInt("numero_expediente")).thenReturn(1);
+        when(rs.getDate("fecha_pago")).thenReturn(Date.valueOf("2025-11-26"));
+        when(rs.getBigDecimal("cantidad")).thenReturn(BigDecimal.valueOf(150));
+    }
 
-        try (MockedStatic<ConexionBBDD> conexionMock = mockStatic(ConexionBBDD.class)) {
-            conexionMock.when(ConexionBBDD::conectar).thenReturn(connection);
+    // ----------------------------
+    // INSERTAR
+    // ----------------------------
+    @Test
+    void testInsertarExitoso() throws Exception {
+        Pago pago = crearPago();
+        when(mockConn.prepareStatement(anyString(), eq(Statement.RETURN_GENERATED_KEYS))).thenReturn(mockPs);
+        when(mockPs.executeUpdate()).thenReturn(1);
+        when(mockPs.getGeneratedKeys()).thenReturn(mockRs);
+        when(mockRs.next()).thenReturn(true);
+        when(mockRs.getInt(1)).thenReturn(99);
 
-            List<Pago> lista = dao.obtenerTodos();
-            assertThat(lista).hasSize(1);
-            assertThat(lista.get(0).getCantidad()).isEqualByComparingTo(BigDecimal.valueOf(200));
-        }
+        boolean resultado = dao.insertar(pago);
+
+        assertThat(resultado).isTrue();
+        assertThat(pago.getId_pago()).isEqualTo(99);
     }
 
     @Test
-    void testBuscarPorRangoFechas() throws Exception {
-        when(connection.prepareStatement(anyString())).thenReturn(ps);
-        when(ps.executeQuery()).thenReturn(rs);
-        when(rs.next()).thenReturn(true, false);
-        when(rs.getInt("id_pago")).thenReturn(2);
-        when(rs.getInt("numero_expediente")).thenReturn(101);
-        when(rs.getDate("fecha_pago")).thenReturn(Date.valueOf("2025-11-20"));
-        when(rs.getBigDecimal("cantidad")).thenReturn(BigDecimal.valueOf(300));
+    void testInsertarSQLException() throws Exception {
+        Pago pago = crearPago();
+        when(mockConn.prepareStatement(anyString(), anyInt())).thenThrow(new SQLException("Simulado"));
 
-        try (MockedStatic<ConexionBBDD> conexionMock = mockStatic(ConexionBBDD.class)) {
-            conexionMock.when(ConexionBBDD::conectar).thenReturn(connection);
-
-            List<Pago> lista = dao.buscarPorRangoFechas(LocalDate.of(2025, 11, 1), LocalDate.of(2025, 11, 30));
-            assertThat(lista).hasSize(1);
-            assertThat(lista.get(0).getNumero_expediente()).isEqualTo(101);
-        }
+        assertThatThrownBy(() -> dao.insertar(pago))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Error insertando pago");
     }
 
+    // ----------------------------
+    // OBTENER TODOS
+    // ----------------------------
+    @Test
+    void testObtenerTodosExitoso() throws Exception {
+        when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
+        when(mockPs.executeQuery()).thenReturn(mockRs);
+        when(mockRs.next()).thenReturn(true, false);
+        mockPagoResultSet(mockRs);
+
+        List<Pago> lista = dao.obtenerTodos();
+
+        assertThat(lista).hasSize(1);
+        assertThat(lista.get(0).getCantidad()).isEqualByComparingTo(BigDecimal.valueOf(150));
+    }
+
+    @Test
+    void testObtenerTodosSQLException() throws Exception {
+        when(mockConn.prepareStatement(anyString())).thenThrow(new SQLException("Simulado"));
+
+        assertThatThrownBy(() -> dao.obtenerTodos())
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Error consultando pagos");
+    }
+
+    // ----------------------------
+    // BUSCAR POR RANGO DE FECHAS
+    // ----------------------------
+    @Test
+    void testBuscarPorRangoFechasExitoso() throws Exception {
+        when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
+        when(mockPs.executeQuery()).thenReturn(mockRs);
+        when(mockRs.next()).thenReturn(true, false);
+        mockPagoResultSet(mockRs);
+
+        List<Pago> lista = dao.buscarPorRangoFechas(LocalDate.of(2025, 11, 1), LocalDate.of(2025, 11, 30));
+        assertThat(lista).hasSize(1);
+    }
+
+    @Test
+    void testBuscarPorRangoFechasSQLException() throws Exception {
+        when(mockConn.prepareStatement(anyString())).thenThrow(new SQLException("Simulado"));
+
+        assertThatThrownBy(() -> dao.buscarPorRangoFechas(LocalDate.now(), LocalDate.now()))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Error consultando pagos por rango");
+    }
+
+    // ----------------------------
+    // ELIMINAR
+    // ----------------------------
     @Test
     void testEliminarExitoso() throws Exception {
-        when(connection.prepareStatement(anyString())).thenReturn(ps);
-        when(ps.executeUpdate()).thenReturn(1);
+        when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
+        when(mockPs.executeUpdate()).thenReturn(1);
 
-        try (MockedStatic<ConexionBBDD> conexionMock = mockStatic(ConexionBBDD.class)) {
-            conexionMock.when(ConexionBBDD::conectar).thenReturn(connection);
-
-            boolean resultado = dao.eliminar(5);
-            assertThat(resultado).isTrue();
-        }
+        boolean resultado = dao.eliminar(5);
+        assertThat(resultado).isTrue();
     }
 
     @Test
-    void testObtenerPorExpediente() throws Exception {
-        when(connection.prepareStatement(anyString())).thenReturn(ps);
-        when(ps.executeQuery()).thenReturn(rs);
-        when(rs.next()).thenReturn(true, false);
-        when(rs.getInt("id_pago")).thenReturn(3);
-        when(rs.getInt("numero_expediente")).thenReturn(200);
-        when(rs.getDate("fecha_pago")).thenReturn(Date.valueOf("2025-11-15"));
-        when(rs.getBigDecimal("cantidad")).thenReturn(BigDecimal.valueOf(400));
+    void testEliminarSQLException() throws Exception {
+        when(mockConn.prepareStatement(anyString())).thenThrow(new SQLException("Simulado"));
 
-        try (MockedStatic<ConexionBBDD> conexionMock = mockStatic(ConexionBBDD.class)) {
-            conexionMock.when(ConexionBBDD::conectar).thenReturn(connection);
+        assertThatThrownBy(() -> dao.eliminar(5))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Error eliminando pago");
+    }
 
-            List<Pago> lista = dao.obtenerPorExpediente(200);
-            assertThat(lista).hasSize(1);
-            assertThat(lista.get(0).getCantidad()).isEqualByComparingTo(BigDecimal.valueOf(400));
-        }
+    // ----------------------------
+    // OBTENER POR EXPEDIENTE
+    // ----------------------------
+    @Test
+    void testObtenerPorExpedienteExitoso() throws Exception {
+        when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
+        when(mockPs.executeQuery()).thenReturn(mockRs);
+        when(mockRs.next()).thenReturn(true, false);
+        mockPagoResultSet(mockRs);
+
+        List<Pago> lista = dao.obtenerPorExpediente(1);
+
+        assertThat(lista).hasSize(1);
+        assertThat(lista.get(0).getNumero_expediente()).isEqualTo(1);
+    }
+
+    @Test
+    void testObtenerPorExpedienteSQLException() throws Exception {
+        when(mockConn.prepareStatement(anyString())).thenThrow(new SQLException("Simulado"));
+
+        assertThatThrownBy(() -> dao.obtenerPorExpediente(1))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Error consultando pagos por expediente");
     }
 }
-
