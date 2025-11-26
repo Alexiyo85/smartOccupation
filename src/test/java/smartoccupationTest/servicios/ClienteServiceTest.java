@@ -1,17 +1,14 @@
 package smartoccupationTest.servicios;
 
-import com.smartoccupation.dao.ClienteDAO;
 import com.smartoccupation.dao.AlquilerDAO;
-import com.smartoccupation.modelo.Cliente;
+import com.smartoccupation.dao.ClienteDAO;
 import com.smartoccupation.modelo.Alquiler;
+import com.smartoccupation.modelo.Cliente;
 import com.smartoccupation.servicios.ClienteService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 
-import java.util.Collections;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -19,97 +16,101 @@ import static org.mockito.Mockito.*;
 
 class ClienteServiceTest {
 
-    @Mock
     private ClienteDAO clienteDAO;
-
-    @Mock
     private AlquilerDAO alquilerDAO;
-
-    @InjectMocks
-    private ClienteService clienteService; // Mockito inyectará los mocks
+    private ClienteService service;
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
+        clienteDAO = mock(ClienteDAO.class);
+        alquilerDAO = mock(AlquilerDAO.class);
+        service = new ClienteService(clienteDAO, alquilerDAO);
     }
 
-    // -------------------------------
-    // Método auxiliar: crear un cliente completo y válido
-    // -------------------------------
-    private Cliente crearClienteValido() {
-        Cliente c = new Cliente();
-        c.setNombre("Juan");
-        c.setPrimer_apellido("Pérez");
-        c.setSegundo_apellido("Gómez");
-        c.setDni("12345678A");
-        c.setTelefono("600123456");
-        c.setEmail("juan.perez@example.com");
-        c.setDireccion("Calle Falsa 123");
-        c.setCiudad("Madrid");
-        c.setProvincia("Madrid");
-        c.setCodigo_postal("28080");
-        return c;
-    }
-
-    // -------------------------------
-    // Test: crear cliente exitosamente
-    // -------------------------------
     @Test
-    void crearCliente_exitoso() {
-        Cliente c = crearClienteValido();
+    void testCrearClienteExitoso() {
+        Cliente c = new Cliente();
+        c.setDni("12345678A");
 
-        // Simulamos que no existe cliente con ese DNI
-        when(clienteDAO.obtenerPorDni(c.getDni())).thenReturn(null);
+        when(clienteDAO.obtenerPorDni("12345678A")).thenReturn(null);
         when(clienteDAO.insertar(c)).thenReturn(true);
 
-        boolean resultado = clienteService.crearCliente(c);
+        boolean exito = service.crearCliente(c);
+        assertThat(exito).isTrue();
 
-        assertThat(resultado).isTrue();
         verify(clienteDAO).insertar(c);
     }
 
-    // -------------------------------
-    // Test: crear cliente con DNI duplicado lanza excepción
-    // -------------------------------
     @Test
-    void crearCliente_dniDuplicado_lanzaExcepcion() {
-        Cliente c = crearClienteValido();
+    void testCrearClienteDniDuplicado() {
+        Cliente existente = new Cliente();
+        existente.setDni("12345678A");
 
-        // Simulamos que ya existe un cliente con ese DNI
-        when(clienteDAO.obtenerPorDni(c.getDni())).thenReturn(new Cliente());
+        Cliente nuevo = new Cliente();
+        nuevo.setDni("12345678A");
 
-        assertThrows(IllegalArgumentException.class, () -> clienteService.crearCliente(c));
+        when(clienteDAO.obtenerPorDni("12345678A")).thenReturn(existente);
+
+        assertThrows(IllegalArgumentException.class, () -> service.crearCliente(nuevo));
         verify(clienteDAO, never()).insertar(any());
     }
 
-    // -------------------------------
-    // Test: eliminar cliente sin alquileres exitosamente
-    // -------------------------------
     @Test
-    void eliminarCliente_sinAlquileres_exitoso() {
+    void testActualizarCliente() {
+        Cliente c = new Cliente();
+        c.setId_cliente(1);
+        when(clienteDAO.actualizar(c)).thenReturn(true);
+
+        boolean exito = service.actualizarCliente(c);
+        assertThat(exito).isTrue();
+        verify(clienteDAO).actualizar(c);
+    }
+
+    @Test
+    void testEliminarClienteSinAlquileres() {
         int idCliente = 1;
 
-        // Simulamos que el cliente no tiene alquileres
-        when(alquilerDAO.obtenerPorCliente(idCliente)).thenReturn(Collections.emptyList());
+        when(alquilerDAO.obtenerPorCliente(idCliente)).thenReturn(List.of());
         when(clienteDAO.eliminar(idCliente)).thenReturn(true);
 
-        boolean resultado = clienteService.eliminarCliente(idCliente);
+        boolean exito = service.eliminarCliente(idCliente);
+        assertThat(exito).isTrue();
 
-        assertThat(resultado).isTrue();
         verify(clienteDAO).eliminar(idCliente);
     }
 
-    // -------------------------------
-    // Test: eliminar cliente con alquileres lanza excepción
-    // -------------------------------
     @Test
-    void eliminarCliente_conAlquileres_lanzaExcepcion() {
+    void testEliminarClienteConAlquileres() {
         int idCliente = 1;
+        Alquiler a = new Alquiler();
+        a.setId_cliente(idCliente);
 
-        // Simulamos que el cliente tiene al menos un alquiler
-        when(alquilerDAO.obtenerPorCliente(idCliente)).thenReturn(Collections.singletonList(new Alquiler()));
+        when(alquilerDAO.obtenerPorCliente(idCliente)).thenReturn(List.of(a));
 
-        assertThrows(IllegalStateException.class, () -> clienteService.eliminarCliente(idCliente));
+        assertThrows(IllegalStateException.class, () -> service.eliminarCliente(idCliente));
         verify(clienteDAO, never()).eliminar(anyInt());
+    }
+
+    @Test
+    void testObtenerCliente() {
+        Cliente c = new Cliente();
+        c.setId_cliente(1);
+
+        when(clienteDAO.obtenerPorId(1)).thenReturn(c);
+        Cliente result = service.obtenerCliente(1);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getId_cliente()).isEqualTo(1);
+    }
+
+    @Test
+    void testObtenerTodos() {
+        Cliente c1 = new Cliente();
+        Cliente c2 = new Cliente();
+
+        when(clienteDAO.obtenerTodos()).thenReturn(List.of(c1, c2));
+
+        List<Cliente> lista = service.obtenerTodos();
+        assertThat(lista).hasSize(2);
     }
 }

@@ -1,73 +1,141 @@
 package smartoccupationTest.servicios;
 
-import com.smartoccupation.dao.EstadoCobroDAO;
-import com.smartoccupation.modelo.EstadoCobro;
-import com.smartoccupation.servicios.EstadoCobroService;
+import com.smartoccupation.gui.paneles.EstadoCobroPanel;
+import com.smartoccupation.modelo.Alquiler;
+import com.smartoccupation.modelo.Cliente;
+import com.smartoccupation.modelo.Vivienda;
+import com.smartoccupation.modelo.Pago;
+import com.smartoccupation.servicios.AlquilerService;
+import com.smartoccupation.servicios.PagoService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import org.mockito.Mockito;
 
-import java.util.Arrays;
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-class EstadoCobroServiceTest {
+class EstadoCobroPanelTest {
 
-    @Mock private EstadoCobroDAO estadoCobroDAO;
-    @InjectMocks private EstadoCobroService service;
+    private AlquilerService alquilerService;
+    private PagoService pagoService;
+    private EstadoCobroPanel panel;
 
     @BeforeEach
-    void setup() {
-        MockitoAnnotations.openMocks(this);
+    void setUp() {
+        alquilerService = mock(AlquilerService.class);
+        pagoService = mock(PagoService.class);
+
+        // Crear alquiler simulado
+        Alquiler alquiler = new Alquiler();
+        alquiler.setNumero_expediente(101);
+
+        Cliente cliente = new Cliente();
+        cliente.setId_cliente(1);
+        cliente.setNombre("Juan");
+        cliente.setPrimer_apellido("Perez");
+        cliente.setSegundo_apellido("Lopez");
+        alquiler.setCliente(cliente);
+
+        Vivienda vivienda = new Vivienda();
+        vivienda.setId_vivienda(1);
+        vivienda.setDireccion("Calle Falsa 123");
+        alquiler.setVivienda(vivienda);
+
+        alquiler.setPrecio_total_estimado(new BigDecimal("1000"));
+
+        when(alquilerService.obtenerTodos()).thenReturn(List.of(alquiler));
+
+        // Crear pagos simulados
+        Pago pago1 = new Pago();
+        pago1.setId_pago(1);
+        pago1.setNumero_expediente(101);
+        pago1.setCantidad(new BigDecimal("300"));
+        pago1.setFecha_pago(LocalDate.now());
+
+        Pago pago2 = new Pago();
+        pago2.setId_pago(2);
+        pago2.setNumero_expediente(101);
+        pago2.setCantidad(new BigDecimal("700"));
+        pago2.setFecha_pago(LocalDate.now());
+
+        when(pagoService.obtenerPagosPorExpediente(101)).thenReturn(List.of(pago1, pago2));
+
+        panel = new EstadoCobroPanel(alquilerService, pagoService);
     }
 
     @Test
-    void obtenerTodos_retornaLista() {
-        when(estadoCobroDAO.obtenerTodos())
-                .thenReturn(Arrays.asList(new EstadoCobro(1, "pendiente")));
-
-        List<EstadoCobro> lista = service.obtenerTodos();
-
-        assertThat(lista).hasSize(1);
-        verify(estadoCobroDAO).obtenerTodos();
+    void testCargaInicialTabla() {
+        DefaultTableModel model = (DefaultTableModel) panel.getTablaCobros().getModel();
+        assertEquals(1, model.getRowCount());
+        assertEquals(101, model.getValueAt(0, 0));
+        assertEquals("Juan Perez Lopez", model.getValueAt(0, 1));
+        assertEquals("Calle Falsa 123", model.getValueAt(0, 2));
+        assertEquals("1000", model.getValueAt(0, 3));
+        assertEquals("1000", model.getValueAt(0, 4)); // totalPagado
+        assertEquals("0", model.getValueAt(0, 5));    // pendiente
+        assertEquals("Pagado", model.getValueAt(0, 6));
     }
 
     @Test
-    void obtenerEstadoCobroPorId_ok() {
-        EstadoCobro ec = new EstadoCobro(1, "pendiente");
-        when(estadoCobroDAO.obtenerPorId(1)).thenReturn(ec);
+    void testFiltroComboBox() {
+        panel.getCbEstado().setSelectedItem("Pagado");
+        panel.refrescarTabla();
 
-        EstadoCobro result = service.obtenerEstadoCobroPorId(1);
+        DefaultTableModel model = (DefaultTableModel) panel.getTablaCobros().getModel();
+        assertEquals(1, model.getRowCount());
 
-        assertThat(result).isNotNull();
-        assertThat(result.getNombre()).isEqualTo("pendiente");
+        panel.getCbEstado().setSelectedItem("Pendiente");
+        panel.refrescarTabla();
+
+        model = (DefaultTableModel) panel.getTablaCobros().getModel();
+        assertEquals(0, model.getRowCount());
     }
 
     @Test
-    void crearEstadoCobro_noDebeExistirAntes() {
-        EstadoCobro nuevo = new EstadoCobro(0, "pendiente");
+    void testBotonRefrescarLlamaCarga() {
+        EstadoCobroPanel spyPanel = Mockito.spy(panel);
 
-        when(estadoCobroDAO.obtenerPorNombre("pendiente")).thenReturn(null);
-        when(estadoCobroDAO.insertar(nuevo)).thenReturn(true);
+        // Remover listeners previos para que el spy reciba la llamada
+        for (var al : spyPanel.getBtnRefrescar().getActionListeners()) {
+            spyPanel.getBtnRefrescar().removeActionListener(al);
+        }
+        spyPanel.getBtnRefrescar().addActionListener(e -> spyPanel.refrescarTabla());
 
-        boolean ok = service.crearEstadoCobro(nuevo);
+        doNothing().when(spyPanel).refrescarTabla();
 
-        assertThat(ok).isTrue();
-        verify(estadoCobroDAO).insertar(nuevo);
+        // Simular click en botón
+        spyPanel.getBtnRefrescar().doClick();
+
+        verify(spyPanel, times(1)).refrescarTabla();
     }
 
     @Test
-    void crearEstadoCobro_yaExisteNombre_lanzaError() {
-        EstadoCobro existente = new EstadoCobro(1, "pendiente");
-        when(estadoCobroDAO.obtenerPorNombre("pendiente")).thenReturn(existente);
+    void testManejoPagoNull() {
+        Pago pagoNull = new Pago();
+        pagoNull.setId_pago(3);
+        pagoNull.setNumero_expediente(101);
+        pagoNull.setCantidad(null);
+        pagoNull.setFecha_pago(LocalDate.now());
 
-        EstadoCobro nuevo = new EstadoCobro(0, "pendiente");
+        when(pagoService.obtenerPagosPorExpediente(101)).thenReturn(List.of(pagoNull));
 
-        assertThrows(IllegalArgumentException.class, () -> service.crearEstadoCobro(nuevo));
+        panel.refrescarTabla();
+
+        DefaultTableModel model = (DefaultTableModel) panel.getTablaCobros().getModel();
+        assertEquals("Pendiente", model.getValueAt(0, 6));
+        assertEquals("0", model.getValueAt(0, 4)); // totalPagado tratado como 0
+        assertEquals("1000", model.getValueAt(0, 5)); // pendiente
+    }
+
+    @Test
+    void testConstructorNullService() {
+        assertThrows(IllegalArgumentException.class, () -> new EstadoCobroPanel(null, pagoService));
+        assertThrows(IllegalArgumentException.class, () -> new EstadoCobroPanel(alquilerService, null));
     }
 }

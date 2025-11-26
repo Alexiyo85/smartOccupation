@@ -1,15 +1,12 @@
 package com.smartoccupation;
 
-import com.smartoccupation.dao.AlquilerDAO;
-import com.smartoccupation.dao.ClienteDAO;
-import com.smartoccupation.dao.EstadoCobroDAO;
-import com.smartoccupation.dao.PagoDAO;
-import com.smartoccupation.dao.ViviendaDAO;
-import com.smartoccupation.gui.MainFrame;
+import com.smartoccupation.dao.*;
 import com.smartoccupation.servicios.*;
+import com.smartoccupation.gui.MainFrame;
+import com.smartoccupation.utilidades.ConexionBBDD;
 
-import javax.swing.SwingUtilities;
-import javax.swing.UIManager;
+import javax.swing.*;
+import java.sql.Connection;
 import java.util.logging.Logger;
 
 public class SmartOccupation {
@@ -18,23 +15,32 @@ public class SmartOccupation {
 
     public static void main(String[] args) {
 
-        // Crear DAOs
+        // 1️⃣ Conexión inicial + creación de BBDD y tablas
+        Connection conn = ConexionBBDD.conectar();
+
+        if (conn == null) {
+            JOptionPane.showMessageDialog(null,
+                    "No es posible iniciar la aplicación sin conexión a la base de datos.",
+                    "Error crítico",
+                    JOptionPane.ERROR_MESSAGE);
+            System.exit(1);
+        }
+
+        // 2️⃣ Crear DAOs
         ClienteDAO clienteDAO = new ClienteDAO();
         AlquilerDAO alquilerDAO = new AlquilerDAO();
         ViviendaDAO viviendaDAO = new ViviendaDAO();
         PagoDAO pagoDAO = new PagoDAO();
         EstadoCobroDAO estadoCobroDAO = new EstadoCobroDAO();
 
-        // Crear servicios con inyección de dependencias
+        // 3️⃣ Crear servicios
         ClienteService clienteService = new ClienteService(clienteDAO, alquilerDAO);
         ViviendaService viviendaService = new ViviendaService(viviendaDAO);
         AlquilerService alquilerService = new AlquilerService(alquilerDAO, viviendaDAO, estadoCobroDAO, clienteDAO);
-
         PagoService pagoService = new PagoService(pagoDAO);
-
         EstadoCobroService estadoCobroService = new EstadoCobroService(estadoCobroDAO);
 
-        // Configurar Look & Feel
+        // 4️⃣ Configurar Look & Feel
         try {
             for (UIManager.LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
                 if ("Nimbus".equals(info.getName())) {
@@ -46,7 +52,7 @@ public class SmartOccupation {
             logger.severe("Error al establecer Look & Feel: " + ex.getMessage());
         }
 
-        // Ejecutar GUI en el EDT
+        // 5️⃣ Lanzar la GUI
         SwingUtilities.invokeLater(() -> {
             MainFrame frame = new MainFrame(
                     clienteService,

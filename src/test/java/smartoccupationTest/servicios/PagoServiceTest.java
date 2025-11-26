@@ -1,21 +1,13 @@
 package smartoccupationTest.servicios;
 
-import com.smartoccupation.dao.AlquilerDAO;
-import com.smartoccupation.dao.EstadoCobroDAO;
 import com.smartoccupation.dao.PagoDAO;
-import com.smartoccupation.modelo.Alquiler;
-import com.smartoccupation.modelo.EstadoCobro;
 import com.smartoccupation.modelo.Pago;
 import com.smartoccupation.servicios.PagoService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.Arrays;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -23,59 +15,67 @@ import static org.mockito.Mockito.*;
 
 class PagoServiceTest {
 
-    @Mock private PagoDAO pagoDAO;
-    @Mock private AlquilerDAO alquilerDAO;
-    @Mock private EstadoCobroDAO estadoCobroDAO;
-
-    @InjectMocks private PagoService service;
+    private PagoDAO pagoDAO;
+    private PagoService service;
 
     @BeforeEach
-    void setup() {
-        MockitoAnnotations.openMocks(this);
+    void setUp() {
+        pagoDAO = mock(PagoDAO.class);
+        service = new PagoService(pagoDAO);
     }
 
     @Test
-    void registrarPago_ok() {
-        Pago p = new Pago();
-        p.setNumero_expediente(10);
+    void testRegistrarPago() {
+        Pago pago = new Pago();
+        when(pagoDAO.insertar(pago)).thenReturn(true);
 
-        Alquiler a = new Alquiler();
-        a.setNumero_expediente(10);
-        a.setPrecio_total_estimado(BigDecimal.valueOf(1000));
-
-        EstadoCobro pagado = new EstadoCobro(2, "pagado");
-
-        when(alquilerDAO.obtenerPorId(10)).thenReturn(a);
-        when(pagoDAO.insertar(p)).thenReturn(true);
-        when(pagoDAO.obtenerTotalPagadoPorAlquiler(10)).thenReturn(BigDecimal.valueOf(1000));
-        when(estadoCobroDAO.obtenerPorNombre("pagado")).thenReturn(pagado);
-
-        boolean ok = service.registrarPago(p);
-
-        assertThat(ok).isTrue();
-        verify(alquilerDAO).actualizar(a);
+        boolean exito = service.registrarPago(pago);
+        assertThat(exito).isTrue();
+        verify(pagoDAO).insertar(pago);
     }
 
     @Test
-    void eliminarPago_ok() {
-        when(pagoDAO.eliminar(5)).thenReturn(true);
+    void testListarTodosLosPagos() {
+        Pago p1 = new Pago();
+        Pago p2 = new Pago();
+        when(pagoDAO.obtenerTodos()).thenReturn(List.of(p1, p2));
 
-        boolean ok = service.eliminarPago(5);
-
-        assertThat(ok).isTrue();
+        List<Pago> lista = service.listarTodosLosPagos();
+        assertThat(lista).hasSize(2);
+        verify(pagoDAO).obtenerTodos();
     }
 
     @Test
-    void buscarPagosPorFecha_ok() {
+    void testBuscarPagosPorFecha() {
+        LocalDate desde = LocalDate.of(2025, 1, 1);
+        LocalDate hasta = LocalDate.of(2025, 12, 31);
         Pago p1 = new Pago();
         Pago p2 = new Pago();
 
-        when(pagoDAO.obtenerPorRangoFechas(any(), any()))
-                .thenReturn(Arrays.asList(p1, p2));
+        when(pagoDAO.buscarPorRangoFechas(desde, hasta)).thenReturn(List.of(p1, p2));
 
-        List<Pago> lista = service.buscarPagosPorFecha(LocalDate.now().minusDays(3), LocalDate.now());
-
+        List<Pago> lista = service.buscarPagosPorFecha(desde, hasta);
         assertThat(lista).hasSize(2);
-        verify(pagoDAO). obtenerPorRangoFechas(any(), any());
+        verify(pagoDAO).buscarPorRangoFechas(desde, hasta);
+    }
+
+    @Test
+    void testEliminarPago() {
+        when(pagoDAO.eliminar(1)).thenReturn(true);
+
+        boolean exito = service.eliminarPago(1);
+        assertThat(exito).isTrue();
+        verify(pagoDAO).eliminar(1);
+    }
+
+    @Test
+    void testObtenerPagosPorExpediente() {
+        Pago p1 = new Pago();
+        Pago p2 = new Pago();
+        when(pagoDAO.obtenerPorExpediente(100)).thenReturn(List.of(p1, p2));
+
+        List<Pago> lista = service.obtenerPagosPorExpediente(100);
+        assertThat(lista).hasSize(2);
+        verify(pagoDAO).obtenerPorExpediente(100);
     }
 }

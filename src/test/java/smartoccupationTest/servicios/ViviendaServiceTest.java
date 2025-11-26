@@ -5,11 +5,8 @@ import com.smartoccupation.modelo.Vivienda;
 import com.smartoccupation.servicios.ViviendaService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 
-import java.util.Arrays;
+import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -18,68 +15,102 @@ import static org.mockito.Mockito.*;
 
 class ViviendaServiceTest {
 
-    @Mock
     private ViviendaDAO viviendaDAO;
-
-    @InjectMocks
-    private ViviendaService viviendaService;
+    private ViviendaService service;
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
+        viviendaDAO = mock(ViviendaDAO.class);
+        service = new ViviendaService(viviendaDAO);
     }
 
     @Test
-    void crearVivienda() {
+    void testCrearVivienda() {
         Vivienda v = new Vivienda();
-
         when(viviendaDAO.insertar(v)).thenReturn(true);
 
-        boolean ok = viviendaService.crearVivienda(v);
-
-        assertThat(ok).isTrue();
+        boolean exito = service.crearVivienda(v);
+        assertThat(exito).isTrue();
         verify(viviendaDAO).insertar(v);
     }
 
     @Test
-    void obtenerTodas() {
-        Vivienda v1 = new Vivienda();
-        Vivienda v2 = new Vivienda();
+    void testActualizarVivienda() {
+        Vivienda v = new Vivienda();
+        v.setId_vivienda(1);
+        when(viviendaDAO.actualizar(v)).thenReturn(true);
 
-        when(viviendaDAO.obtenerTodos()).thenReturn(Arrays.asList(v1, v2));
-
-        List<Vivienda> lista = viviendaService.obtenerTodas();
-
-        assertThat(lista).hasSize(2);
-        verify(viviendaDAO).obtenerTodos();
+        boolean exito = service.actualizarVivienda(v);
+        assertThat(exito).isTrue();
+        verify(viviendaDAO).actualizar(v);
     }
 
     @Test
-    void eliminarVivienda() {
+    void testEliminarViviendaDisponible() {
         Vivienda v = new Vivienda();
         v.setId_vivienda(1);
-        v.setEstado("disponible"); // ✅ ES LO QUE ESPERA EL SERVICE
+        v.setEstado("disponible");
 
         when(viviendaDAO.obtenerPorId(1)).thenReturn(v);
         when(viviendaDAO.eliminar(1)).thenReturn(true);
 
-        boolean ok = viviendaService.eliminarVivienda(1);
-
-        assertThat(ok).isTrue();
+        boolean exito = service.eliminarVivienda(1);
+        assertThat(exito).isTrue();
         verify(viviendaDAO).eliminar(1);
     }
 
     @Test
-    void eliminarVivienda_noDisponible_lanzaExcepcion() {
+    void testEliminarViviendaNoDisponible() {
         Vivienda v = new Vivienda();
         v.setId_vivienda(1);
         v.setEstado("ocupado");
 
         when(viviendaDAO.obtenerPorId(1)).thenReturn(v);
 
-        assertThrows(IllegalStateException.class, ()
-                -> viviendaService.eliminarVivienda(1)
-        );
+        assertThrows(IllegalStateException.class, () -> service.eliminarVivienda(1));
+        verify(viviendaDAO, never()).eliminar(anyInt());
     }
 
+    @Test
+    void testEliminarViviendaNoExiste() {
+        when(viviendaDAO.obtenerPorId(99)).thenReturn(null);
+        boolean exito = service.eliminarVivienda(99);
+        assertThat(exito).isFalse();
+        verify(viviendaDAO, never()).eliminar(anyInt());
+    }
+
+    @Test
+    void testObtenerVivienda() {
+        Vivienda v = new Vivienda();
+        v.setId_vivienda(1);
+
+        when(viviendaDAO.obtenerPorId(1)).thenReturn(v);
+        Vivienda result = service.obtenerVivienda(1);
+
+        assertThat(result).isNotNull();
+        assertThat(result.getId_vivienda()).isEqualTo(1);
+    }
+
+    @Test
+    void testObtenerTodas() {
+        Vivienda v1 = new Vivienda();
+        Vivienda v2 = new Vivienda();
+
+        when(viviendaDAO.obtenerTodos()).thenReturn(List.of(v1, v2));
+        List<Vivienda> lista = service.obtenerTodas();
+
+        assertThat(lista).hasSize(2);
+    }
+
+    @Test
+    void testObtenerPorEstado() {
+        Vivienda v1 = new Vivienda();
+        Vivienda v2 = new Vivienda();
+
+        when(viviendaDAO.obtenerPorEstado("disponible")).thenReturn(List.of(v1, v2));
+        List<Vivienda> lista = service.obtenerPorEstado("disponible");
+
+        assertThat(lista).hasSize(2);
+    }
 }
+

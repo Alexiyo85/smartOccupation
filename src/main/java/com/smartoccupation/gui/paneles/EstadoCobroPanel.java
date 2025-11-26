@@ -148,6 +148,23 @@ public class EstadoCobroPanel extends javax.swing.JPanel {
         }
     }
 
+    public JTable getTablaCobros() {
+        return tablaCobros;
+    }
+
+    public JComboBox<String> getCbEstado() {
+        return cbEstado;
+    }
+
+    // Solo para testing
+    public void refrescarTabla() {
+        cargarTablaAlquileres();
+    }
+
+    public JButton getBtnRefrescar() {
+        return btnRefrescar;
+    }
+
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {

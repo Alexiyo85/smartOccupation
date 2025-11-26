@@ -294,7 +294,7 @@ public class PagoDialog extends BaseDialog {
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setPreferredSize(new java.awt.Dimension(580, 200));
 
-        txtGuardar.setText("Guardar");
+        txtGuardar.setText("Pagar");
         panelBotones.add(txtGuardar);
 
         btnCancelar.setText("Cancelar");
