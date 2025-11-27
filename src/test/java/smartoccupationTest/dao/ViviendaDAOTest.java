@@ -43,7 +43,7 @@ class ViviendaDAOTest {
             boolean result = dao.insertar(v);
 
             assertTrue(result);
-            assertEquals(99, v.getId_vivienda());
+            assertEquals(99, v.getIdVivienda());
             verify(mockPs).executeUpdate();
         }
     }
@@ -74,7 +74,7 @@ class ViviendaDAOTest {
             when(mockPs.executeUpdate()).thenReturn(1);
 
             Vivienda v = crearVivienda();
-            v.setId_vivienda(10);
+            v.setIdVivienda(10);
 
             boolean result = dao.actualizar(v);
             assertTrue(result);
@@ -137,7 +137,7 @@ class ViviendaDAOTest {
 
             Vivienda v = dao.obtenerPorId(10);
             assertNotNull(v);
-            assertEquals(10, v.getId_vivienda());
+            assertEquals(10, v.getIdVivienda());
         }
     }
 
@@ -184,8 +184,8 @@ class ViviendaDAOTest {
             List<Vivienda> lista = dao.obtenerTodos();
 
             assertEquals(2, lista.size());
-            assertEquals("REF-001", lista.get(0).getCodigo_referencia());
-            assertEquals("REF-002", lista.get(1).getCodigo_referencia());
+            assertEquals("REF-001", lista.get(0).getCodigoReferencia());
+            assertEquals("REF-002", lista.get(1).getCodigoReferencia());
         }
     }
 
@@ -245,7 +245,7 @@ class ViviendaDAOTest {
 
             Vivienda v = dao.obtenerPorCodigoReferencia("REF-007");
             assertNotNull(v);
-            assertEquals("REF-007", v.getCodigo_referencia());
+            assertEquals("REF-007", v.getCodigoReferencia());
         }
     }
 
@@ -254,15 +254,15 @@ class ViviendaDAOTest {
     // =========================================================================
     private Vivienda crearVivienda() {
         Vivienda v = new Vivienda();
-        v.setCodigo_referencia("REF-001");
+        v.setCodigoReferencia("REF-001");
         v.setDireccion("Calle Falsa 123");
         v.setCiudad("Madrid");
         v.setProvincia("Madrid");
-        v.setCodigo_postal("28000");
-        v.setMetros_cuadrados(80);
-        v.setNumero_habitaciones(3);
-        v.setNumero_banios(2);
-        v.setPrecio_mensual(new BigDecimal("750.00"));
+        v.setCodigoPostal("28000");
+        v.setMetrosCuadrados(80);
+        v.setNumeroHabitaciones(3);
+        v.setNumeroBanios(2);
+        v.setPrecioMensual(new BigDecimal("750.00"));
         v.setEstado("disponible"); // Valor válido
         return v;
     }

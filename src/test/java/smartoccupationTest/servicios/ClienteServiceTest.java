@@ -58,7 +58,7 @@ class ClienteServiceTest {
     @Test
     void testActualizarCliente() {
         Cliente c = new Cliente();
-        c.setId_cliente(1);
+        c.setIdCliente(1);
         when(clienteDAO.actualizar(c)).thenReturn(true);
 
         boolean exito = service.actualizarCliente(c);
@@ -83,7 +83,7 @@ class ClienteServiceTest {
     void testEliminarClienteConAlquileres() {
         int idCliente = 1;
         Alquiler a = new Alquiler();
-        a.setId_cliente(idCliente);
+        a.setIdCliente(idCliente);
 
         when(alquilerDAO.obtenerPorCliente(idCliente)).thenReturn(List.of(a));
 
@@ -94,13 +94,13 @@ class ClienteServiceTest {
     @Test
     void testObtenerCliente() {
         Cliente c = new Cliente();
-        c.setId_cliente(1);
+        c.setIdCliente(1);
 
         when(clienteDAO.obtenerPorId(1)).thenReturn(c);
         Cliente result = service.obtenerCliente(1);
 
         assertThat(result).isNotNull();
-        assertThat(result.getId_cliente()).isEqualTo(1);
+        assertThat(result.getIdCliente()).isEqualTo(1);
     }
 
     @Test

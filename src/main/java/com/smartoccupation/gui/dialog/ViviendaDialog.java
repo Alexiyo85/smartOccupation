@@ -6,112 +6,171 @@ import com.smartoccupation.gui.util.FormUtils;
 
 import javax.swing.*;
 import java.awt.*; // Necesario para Window y Dialog.ModalityType
+import java.math.BigDecimal; // Necesario para parsear el precio
 
+/**
+ * Diálogo (JDialog) para la creación y edición de entidades Vivienda. 🏠 Hereda
+ * de BaseDialog para integrar la lógica de guardar, cancelar y manejar errores.
+ *
+ * @author Alex Fernández
+ * @version 1.0
+ * @since 2025-11-27
+ */
 public class ViviendaDialog extends BaseDialog {
 
     private final ViviendaService viviendaService;
+    // Referencia a la entidad que se está creando o editando.
     private Vivienda viviendaActual;
 
     // ===============================================================
-    // CONSTRUCTOR PRINCIPAL
+    // CONSTRUCTOR PRINCIPAL (Creación)
     // ===============================================================
+    /**
+     * Constructor para crear una nueva Vivienda.
+     *
+     * @param parent Ventana padre.
+     * @param modal Indicador de modalidad.
+     * @param viviendaService Servicio para la persistencia de datos.
+     */
     public ViviendaDialog(Window parent, boolean modal, ViviendaService viviendaService) {
+        // Llama al constructor de BaseDialog.
         super(parent, modal ? Dialog.ModalityType.APPLICATION_MODAL : Dialog.ModalityType.MODELESS);
         this.viviendaService = viviendaService;
 
         initComponents();
 
-        // INYECTAR los botones del formulario en BaseDialog
+        // INYECTAR los botones del formulario en BaseDialog para que maneje los listeners.
         setBtnGuardar(this.btnGuardar);
         setBtnCancelar(this.btnCancelar);
 
-        // Activar la lógica general de Guardar/Cancelar
+        // Activar la lógica general de Guardar/Cancelar (llama a guardarEntidad() y dispose()).
         configurarBotonesBase();
 
-        pack();
+        setTitle("Registrar Nueva Vivienda");
+        pack(); // Ajustar tamaño de la ventana al contenido.
         setLocationRelativeTo(parent);
     }
 
     // ===============================================================
     // CONSTRUCTOR PARA EDICIÓN
     // ===============================================================
+    /**
+     * Constructor para editar una Vivienda existente.
+     *
+     * @param parent Ventana padre.
+     * @param modal Indicador de modalidad.
+     * @param viviendaService Servicio para la persistencia de datos.
+     * @param vivienda La entidad Vivienda a editar.
+     */
     public ViviendaDialog(Window parent, boolean modal, ViviendaService viviendaService, Vivienda vivienda) {
+        // Llama al constructor principal para inicializar el servicio y los componentes.
         this(parent, modal, viviendaService);
         this.viviendaActual = vivienda;
-        cargarVivienda(vivienda);
+        cargarVivienda(vivienda); // Rellenar los campos con los datos de la entidad.
         setTitle("Editar Vivienda");
     }
 
+    /**
+     * Rellena los campos del formulario con los datos de una entidad Vivienda.
+     *
+     * @param vivienda La entidad a cargar.
+     */
     public void cargarVivienda(Vivienda vivienda) {
         this.viviendaActual = vivienda;
         if (vivienda != null) {
-            txtCodigoReferencia.setText(vivienda.getCodigo_referencia());
+            txtCodigoReferencia.setText(vivienda.getCodigoReferencia());
             txtDireccion.setText(vivienda.getDireccion());
             txtCiudad.setText(vivienda.getCiudad());
             txtProvincia.setText(vivienda.getProvincia());
-            txtCodigoPostal.setText(vivienda.getCodigo_postal());
+            txtCodigoPostal.setText(vivienda.getCodigoPostal());
 
-            // Manejo seguro de números (si son 0 se ven como 0, si quieres vacío usa lógica condicional)
-            txtMetrosCuadrados.setText(String.valueOf(vivienda.getMetros_cuadrados()));
-            txtNumeroHabitaciones.setText(String.valueOf(vivienda.getNumero_habitaciones()));
-            txtNumeroBanios.setText(String.valueOf(vivienda.getNumero_banios()));
-            txtPrecioMensual.setText(String.valueOf(vivienda.getPrecio_mensual()));
+            // Convertir valores numéricos a String para los JTextFields.
+            txtMetrosCuadrados.setText(String.valueOf(vivienda.getMetrosCuadrados()));
+            txtNumeroHabitaciones.setText(String.valueOf(vivienda.getNumeroHabitaciones()));
+            txtNumeroBanios.setText(String.valueOf(vivienda.getNumeroBanios()));
+            // Usamos toPlainString() para asegurar formato de BigDecimal en el campo de texto.
+            txtPrecioMensual.setText(vivienda.getPrecio_mensual() != null ? vivienda.getPrecio_mensual().toPlainString() : "");
 
+            // Establecer el estado seleccionado en el JComboBox.
             cmbEstado.setSelectedItem(vivienda.getEstado());
         }
     }
 
+    // ===============================================================
+    // VALIDACIÓN
+    // ===============================================================
+    /**
+     * Implementa la validación de campos del formulario. Se llama
+     * automáticamente antes de guardar gracias a BaseDialog.
+     *
+     * @return true si todos los campos son válidos.
+     */
     @Override
     protected boolean validarCampos() {
+        // 1. Validación de campo obligatorio (Dirección).
         if (txtDireccion.getText().trim().isEmpty()) {
             mostrarAdvertencia("La dirección es obligatoria.");
             return false;
         }
 
         try {
-            // Validamos formatos usando FormUtils
+            // 2. Validar que los campos numéricos tengan el formato correcto (usando FormUtils).
             FormUtils.parseBigDecimal(txtPrecioMensual.getText(), "precio mensual");
             FormUtils.parseInt(txtMetrosCuadrados.getText(), "metros cuadrados");
             FormUtils.parseInt(txtNumeroHabitaciones.getText(), "número de habitaciones");
             FormUtils.parseInt(txtNumeroBanios.getText(), "número de baños");
             return true;
         } catch (IllegalArgumentException ex) {
-            mostrarAdvertencia(ex.getMessage()); // Usamos método de BaseDialog
+            // Capturar errores de formato de FormUtils y mostrarlos al usuario.
+            mostrarAdvertencia(ex.getMessage());
             return false;
         }
     }
 
+    // ===============================================================
+    // GUARDAR ENTIDAD
+    // ===============================================================
+    /**
+     * Implementa la lógica para crear o actualizar la entidad Vivienda. Se
+     * llama automáticamente después de la validación exitosa gracias a
+     * BaseDialog.
+     *
+     * @throws Exception Propaga cualquier error del servicio de persistencia.
+     */
     @Override
     protected void guardarEntidad() throws Exception {
+        // Inicializar la entidad si es un nuevo registro.
         if (viviendaActual == null) {
             viviendaActual = new Vivienda();
         }
 
-        viviendaActual.setCodigo_referencia(txtCodigoReferencia.getText().trim());
+        // Mapear campos de texto al objeto Vivienda.
+        viviendaActual.setCodigoReferencia(txtCodigoReferencia.getText().trim());
         viviendaActual.setDireccion(txtDireccion.getText().trim());
         viviendaActual.setCiudad(txtCiudad.getText().trim());
         viviendaActual.setProvincia(txtProvincia.getText().trim());
-        viviendaActual.setCodigo_postal(txtCodigoPostal.getText().trim());
+        viviendaActual.setCodigoPostal(txtCodigoPostal.getText().trim());
 
-        viviendaActual.setMetros_cuadrados(FormUtils.parseInt(txtMetrosCuadrados.getText(), "metros cuadrados"));
-        viviendaActual.setNumero_habitaciones(FormUtils.parseInt(txtNumeroHabitaciones.getText(), "número de habitaciones"));
-        viviendaActual.setNumero_banios(FormUtils.parseInt(txtNumeroBanios.getText(), "número de baños"));
-        viviendaActual.setPrecio_mensual(FormUtils.parseBigDecimal(txtPrecioMensual.getText(), "precio mensual"));
+        // Mapear campos numéricos usando los parseadores seguros.
+        viviendaActual.setMetrosCuadrados(FormUtils.parseInt(txtMetrosCuadrados.getText(), "metros cuadrados"));
+        viviendaActual.setNumeroHabitaciones(FormUtils.parseInt(txtNumeroHabitaciones.getText(), "número de habitaciones"));
+        viviendaActual.setNumeroBanios(FormUtils.parseInt(txtNumeroBanios.getText(), "número de baños"));
+        viviendaActual.setPrecioMensual(FormUtils.parseBigDecimal(txtPrecioMensual.getText(), "precio mensual"));
         viviendaActual.setEstado((String) cmbEstado.getSelectedItem());
 
-        // Asumimos lógica estándar: ID <= 0 es crear, ID > 0 es actualizar
-        // Nota: Si ViviendaService no tiene actualizarVivienda, usa solo crearVivienda,
-        // pero idealmente deberías tener ambos.
-        if (viviendaActual.getId_vivienda() <= 0) {
+        // Lógica de persistencia: Crear si ID es 0, Actualizar si ID > 0.
+        if (viviendaActual.getIdVivienda() <= 0) {
+            // Crear nueva vivienda.
             boolean exito = viviendaService.crearVivienda(viviendaActual);
             if (!exito) {
                 throw new Exception("No se pudo crear la vivienda.");
             }
         } else {
-            // Asumiendo que existe actualizarVivienda. Si no existe, descomenta la línea de crear y comenta esta.
-            // viviendaService.crearVivienda(viviendaActual); 
+            // Actualizar vivienda existente.
             viviendaService.actualizarVivienda(viviendaActual);
         }
+
+        // El BaseDialog se encarga de cerrar el diálogo (dispose()) después de esta llamada si no hay excepción.
     }
 
     @SuppressWarnings("unchecked")
@@ -275,11 +334,6 @@ public class ViviendaDialog extends BaseDialog {
         panelCampos.add(txtCiudad, gridBagConstraints);
 
         txtProvincia.setColumns(15);
-        txtProvincia.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                txtProvinciaActionPerformed(evt);
-            }
-        });
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 1;
         gridBagConstraints.gridy = 3;
@@ -292,11 +346,6 @@ public class ViviendaDialog extends BaseDialog {
         panelCampos.add(txtCodigoPostal, gridBagConstraints);
 
         txtMetrosCuadrados.setColumns(15);
-        txtMetrosCuadrados.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                txtMetrosCuadradosActionPerformed(evt);
-            }
-        });
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 1;
         gridBagConstraints.gridy = 5;
@@ -330,14 +379,6 @@ public class ViviendaDialog extends BaseDialog {
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
-
-    private void txtProvinciaActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtProvinciaActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_txtProvinciaActionPerformed
-
-    private void txtMetrosCuadradosActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtMetrosCuadradosActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_txtMetrosCuadradosActionPerformed
 
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

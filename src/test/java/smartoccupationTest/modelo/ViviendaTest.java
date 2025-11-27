@@ -17,15 +17,15 @@ public class ViviendaTest {
                 new BigDecimal("750.50"), "disponible"
         );
 
-        assertEquals(1, v.getId_vivienda());
-        assertEquals("REF123", v.getCodigo_referencia());
+        assertEquals(1, v.getIdVivienda());
+        assertEquals("REF123", v.getCodigoReferencia());
         assertEquals("Calle 1", v.getDireccion());
         assertEquals("Madrid", v.getCiudad());
         assertEquals("Madrid", v.getProvincia());
-        assertEquals("28080", v.getCodigo_postal());
-        assertEquals(80, v.getMetros_cuadrados());
-        assertEquals(3, v.getNumero_habitaciones());
-        assertEquals(1, v.getNumero_banios());
+        assertEquals("28080", v.getCodigoPostal());
+        assertEquals(80, v.getMetrosCuadrados());
+        assertEquals(3, v.getNumeroHabitaciones());
+        assertEquals(1, v.getNumeroBanios());
         assertEquals(new BigDecimal("750.50"), v.getPrecio_mensual());
         assertEquals("disponible", v.getEstado());
     }
@@ -33,13 +33,13 @@ public class ViviendaTest {
     @Test
     void codigoReferenciaNoPuedeSerVacio() {
         Vivienda v = new Vivienda();
-        assertThrows(IllegalArgumentException.class, () -> v.setCodigo_referencia(""));
+        assertThrows(IllegalArgumentException.class, () -> v.setCodigoReferencia(""));
     }
 
     @Test
     void precioMensualNegativoDebeLanzarExcepcion() {
         Vivienda v = new Vivienda();
-        assertThrows(IllegalArgumentException.class, () -> v.setPrecio_mensual(new BigDecimal("-1")));
+        assertThrows(IllegalArgumentException.class, () -> v.setPrecioMensual(new BigDecimal("-1")));
     }
 
     @Test

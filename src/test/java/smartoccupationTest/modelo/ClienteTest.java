@@ -15,10 +15,10 @@ public class ClienteTest {
                 "Gomez", "Perez", "Juan"
         );
 
-        assertEquals(1, c.getId_cliente());
+        assertEquals(1, c.getIdCliente());
         assertEquals("Juan", c.getNombre());
-        assertEquals("Perez", c.getPrimer_apellido());
-        assertEquals("Gomez", c.getSegundo_apellido());
+        assertEquals("Perez", c.getPrimerApellido());
+        assertEquals("Gomez", c.getSegundoApellido());
         assertEquals("12345678A", c.getDni());
         assertEquals("test@test.com", c.getEmail());
         assertEquals("666777888", c.getTelefono());
@@ -54,9 +54,9 @@ public class ClienteTest {
     @Test
     void toStringDebeFormatearCorrectamente() {
         Cliente c = new Cliente();
-        c.setId_cliente(1);
+        c.setIdCliente(1);
         c.setNombre("Juan");
-        c.setPrimer_apellido("Perez");
+        c.setPrimerApellido("Perez");
         c.setDni("12345678A");
 
         assertEquals("Juan Perez (12345678A)", c.toString());

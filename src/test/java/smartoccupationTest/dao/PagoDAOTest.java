@@ -41,8 +41,8 @@ class PagoDAOTest {
 
     private Pago crearPago() {
         Pago pago = new Pago();
-        pago.setNumero_expediente(1);
-        pago.setFecha_pago(LocalDate.of(2025, 11, 26));
+        pago.setNumeroExpediente(1);
+        pago.setFechaPago(LocalDate.of(2025, 11, 26));
         pago.setCantidad(BigDecimal.valueOf(150));
         return pago;
     }
@@ -69,7 +69,7 @@ class PagoDAOTest {
         boolean resultado = dao.insertar(pago);
 
         assertThat(resultado).isTrue();
-        assertThat(pago.getId_pago()).isEqualTo(99);
+        assertThat(pago.getIdPago()).isEqualTo(99);
     }
 
     @Test
@@ -164,7 +164,7 @@ class PagoDAOTest {
         List<Pago> lista = dao.obtenerPorExpediente(1);
 
         assertThat(lista).hasSize(1);
-        assertThat(lista.get(0).getNumero_expediente()).isEqualTo(1);
+        assertThat(lista.get(0).getNumeroExpediente()).isEqualTo(1);
     }
 
     @Test

@@ -16,9 +16,9 @@ public class PagoTest {
 
         Pago p = new Pago(1, 999, fecha, new BigDecimal("100"));
 
-        assertEquals(1, p.getId_pago());
-        assertEquals(999, p.getNumero_expediente());
-        assertEquals(fecha, p.getFecha_pago());
+        assertEquals(1, p.getIdPago());
+        assertEquals(999, p.getNumeroExpediente());
+        assertEquals(fecha, p.getFechaPago());
         assertEquals(new BigDecimal("100"), p.getCantidad());
     }
 
@@ -26,13 +26,13 @@ public class PagoTest {
     void settersFuncionanCorrectamente() {
         Pago p = new Pago();
         p.setId_pago(10);
-        p.setNumero_expediente(200);
-        p.setFecha_pago(LocalDate.of(2024, 5, 5));
+        p.setNumeroExpediente(200);
+        p.setFechaPago(LocalDate.of(2024, 5, 5));
         p.setCantidad(new BigDecimal("250"));
 
-        assertEquals(10, p.getId_pago());
-        assertEquals(200, p.getNumero_expediente());
-        assertEquals(LocalDate.of(2024, 5, 5), p.getFecha_pago());
+        assertEquals(10, p.getIdPago());
+        assertEquals(200, p.getNumeroExpediente());
+        assertEquals(LocalDate.of(2024, 5, 5), p.getFechaPago());
         assertEquals(new BigDecimal("250"), p.getCantidad());
     }
 }

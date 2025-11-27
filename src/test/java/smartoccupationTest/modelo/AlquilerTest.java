@@ -21,77 +21,77 @@ public class AlquilerTest {
                 1, 2, 3
         );
 
-        assertEquals(10, a.getNumero_expediente());
-        assertEquals(inicio, a.getFecha_inicio());
-        assertEquals(2, a.getTiempo_meses());
-        assertEquals(15, a.getTiempo_dias());
-        assertEquals(1, a.getId_cliente());
-        assertEquals(2, a.getId_vivienda());
-        assertEquals(3, a.getId_estado_cobro());
+        assertEquals(10, a.getNumeroExpediente());
+        assertEquals(inicio, a.getFechaInicio());
+        assertEquals(2, a.getTiempoMeses());
+        assertEquals(15, a.getTiempoDias());
+        assertEquals(1, a.getIdCliente());
+        assertEquals(2, a.getIdVivienda());
+        assertEquals(3, a.getIdEstadoCobro());
     }
 
     @Test
     void calcularFechaFinActualizaCorrectamente() {
         Alquiler a = new Alquiler();
-        a.setFecha_inicio(LocalDate.of(2024, 1, 1));
-        a.setTiempo_meses(1);
-        a.setTiempo_dias(10);
+        a.setFechaInicio(LocalDate.of(2024, 1, 1));
+        a.setTiempoMeses(1);
+        a.setTiempoDias(10);
 
-        assertEquals(LocalDate.of(2024, 2, 11), a.getFecha_fin_estimada());
+        assertEquals(LocalDate.of(2024, 2, 11), a.getFechaFinEstimada());
     }
 
     @Test
     void precioTotalEstimadoNoPuedeSerNegativo() {
         Alquiler a = new Alquiler();
         assertThrows(IllegalArgumentException.class,
-                () -> a.setPrecio_total_estimado(new BigDecimal("-1")));
+                () -> a.setPrecioTotalEstimado(new BigDecimal("-1")));
     }
 
     @Test
     void calcularPrecioTotalFuncionaCorrectamente() {
         Alquiler a = new Alquiler();
-        a.setTiempo_meses(1);
-        a.setTiempo_dias(15);
+        a.setTiempoMeses(1);
+        a.setTiempoDias(15);
 
         a.calcularPrecioTotal(new BigDecimal("300"));
 
-        assertEquals(new BigDecimal("450.00"), a.getPrecio_total_estimado());
+        assertEquals(new BigDecimal("450.00"), a.getPrecioTotalEstimado());
     }
 
     @Test
     void setClienteActualizaIdCliente() {
         Cliente c = new Cliente();
-        c.setId_cliente(50);
+        c.setIdCliente(50);
         c.setNombre("Juan");
-        c.setPrimer_apellido("Perez");
-        c.setSegundo_apellido("Lopez");
+        c.setPrimerApellido("Perez");
+        c.setSegundoApellido("Lopez");
         c.setDni("12345678A");
         c.setDireccion("Calle 1");
         c.setCiudad("Madrid");
         c.setProvincia("Madrid");
-        c.setCodigo_postal("28001");
+        c.setCodigoPostal("28001");
 
         Alquiler a = new Alquiler();
         a.setCliente(c);
 
-        assertEquals(50, a.getId_cliente());
+        assertEquals(50, a.getIdCliente());
     }
 
     @Test
     void toComboStringDevuelveFormatoCorrecto() {
         Cliente c = new Cliente();
-        c.setId_cliente(1);
+        c.setIdCliente(1);
         c.setNombre("Ana");
-        c.setPrimer_apellido("Gomez");
-        c.setSegundo_apellido("Lopez");
+        c.setPrimerApellido("Gomez");
+        c.setSegundoApellido("Lopez");
         c.setDni("12345678A");
         c.setDireccion("Calle 1");
         c.setCiudad("Madrid");
         c.setProvincia("Madrid");
-        c.setCodigo_postal("28001");
+        c.setCodigoPostal("28001");
 
         Alquiler a = new Alquiler();
-        a.setNumero_expediente(40);
+        a.setNumeroExpediente(40);
         a.setCliente(c);
 
         assertEquals("Expediente 40 - Ana", a.toComboString());
@@ -100,31 +100,31 @@ public class AlquilerTest {
     @Test
     void toStringDevuelveFormatoCorrecto() {
         Cliente c = new Cliente();
-        c.setId_cliente(2);
+        c.setIdCliente(2);
         c.setNombre("Luis");
-        c.setPrimer_apellido("Martinez");
-        c.setSegundo_apellido("Ruiz");
+        c.setPrimerApellido("Martinez");
+        c.setSegundoApellido("Ruiz");
         c.setDni("87654321B");
         c.setDireccion("Calle 3");
         c.setCiudad("Madrid");
         c.setProvincia("Madrid");
-        c.setCodigo_postal("28002");
+        c.setCodigoPostal("28002");
 
         Vivienda v = new Vivienda();
-        v.setId_vivienda(5);
-        v.setCodigo_referencia("REF2");
+        v.setIdVivienda(5);
+        v.setCodigoReferencia("REF2");
         v.setDireccion("Calle 5");
         v.setCiudad("Madrid");
         v.setProvincia("Madrid");
-        v.setCodigo_postal("28002");
-        v.setMetros_cuadrados(80);
-        v.setNumero_habitaciones(2);
-        v.setNumero_banios(1);
-        v.setPrecio_mensual(new BigDecimal("700"));
+        v.setCodigoPostal("28002");
+        v.setMetrosCuadrados(80);
+        v.setNumeroHabitaciones(2);
+        v.setNumeroBanios(1);
+        v.setPrecioMensual(new BigDecimal("700"));
         v.setEstado("disponible");
 
         Alquiler a = new Alquiler();
-        a.setNumero_expediente(99);
+        a.setNumeroExpediente(99);
         a.setCliente(c);
         a.setVivienda(v);
 

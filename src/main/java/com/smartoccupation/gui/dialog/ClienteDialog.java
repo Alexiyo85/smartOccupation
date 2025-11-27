@@ -7,66 +7,103 @@ import com.smartoccupation.gui.util.FormUtils;
 import javax.swing.*;
 import java.awt.*;
 
+/**
+ * Diálogo (JDialog) para la creación y edición de entidades Cliente. 👤
+ * Extiende BaseDialog para aprovechar la lógica común de guardado y validación.
+ *
+ * @author Alex Fernández
+ * @version 1.0
+ * @since 2025-11-27
+ */
 public class ClienteDialog extends BaseDialog {
 
+    // Servicio de negocio para interactuar con la capa de datos de Cliente.
     private final ClienteService clienteService;
+    // Entidad actual en edición o la nueva entidad a crear.
     private Cliente clienteActual;
 
 // ===============================================================
 // CONSTRUCTORES Y CONFIGURACIÓN (La Inyección de Referencias)
 // ===============================================================
-    
-    // Constructor Crear
+    /**
+     * Constructor para la creación de un **nuevo** cliente.
+     *
+     * @param parent Ventana padre.
+     * @param modal Tipo de modalidad.
+     * @param clienteService Servicio de Cliente inyectado.
+     */
     public ClienteDialog(Window parent, boolean modal, ClienteService clienteService) {
+        // Llama al constructor de BaseDialog.
         super(parent, modal ? Dialog.ModalityType.APPLICATION_MODAL : Dialog.ModalityType.MODELESS);
         this.clienteService = clienteService;
 
-        // 1. Ejecuta el código generado. Esto crea las instancias de los componentes privados.
+        // 1. Ejecuta el código generado. Esto crea las instancias de los componentes privados (incluyendo los botones).
         initComponents();
 
-        // 2. PASO CLAVE: INYECTAMOS las referencias de los botones privados al padre.
-        // Esto permite que BaseDialog configure los listeners en los objetos correctos.
-        setBtnGuardar(this.btnGuardar); 
+        // 2. PASO CLAVE: INYECTAMOS las referencias de los botones privados al padre (BaseDialog).
+        // Esto permite que BaseDialog configure los listeners en los objetos correctos (btnGuardar, btnCancelar).
+        setBtnGuardar(this.btnGuardar);
         setBtnCancelar(this.btnCancelar);
-        
-        // 3. LLAMADA CLAVE: BaseDialog aplica la lógica a las referencias inyectadas.
+
+        // 3. LLAMADA CLAVE: BaseDialog aplica la lógica de guardar/cancelar a las referencias inyectadas.
         configurarBotonesBase();
 
         // Finaliza la configuración de la ventana.
-        pack();
-        setLocationRelativeTo(parent); 
+        pack(); // Ajusta el tamaño del diálogo a sus componentes.
+        setLocationRelativeTo(parent); // Centra el diálogo en la ventana padre.
     }
 
-    // Constructor Editar
+    /**
+     * Constructor para la **edición** de un cliente existente.
+     *
+     * @param parent Ventana padre.
+     * @param modal Tipo de modalidad.
+     * @param clienteService Servicio de Cliente inyectado.
+     * @param cliente Cliente a cargar para edición.
+     */
     public ClienteDialog(Window parent, boolean modal, ClienteService clienteService, Cliente cliente) {
+        // Llama al constructor de creación para inicializar componentes y servicios.
         this(parent, modal, clienteService);
         this.clienteActual = cliente;
-        cargarCliente(cliente);
-        setTitle("Editar Cliente");
+        cargarCliente(cliente); // Carga los datos del cliente en los campos.
+        setTitle("Editar Cliente"); // Cambia el título del diálogo.
     }
 
 // -----------------------------------------------------------------------------------
 // MÉTODOS DE NEGOCIO Y LÓGICA ABSTRACTA
 // -----------------------------------------------------------------------------------
-
+    /**
+     * Carga los datos de un objeto Cliente en los campos de texto del
+     * formulario.
+     *
+     * @param cliente El objeto Cliente cuyos datos se van a mostrar.
+     */
     public void cargarCliente(Cliente cliente) {
         this.clienteActual = cliente;
+        // Uso de ternario para manejar posibles nulos y evitar NullPointerException
         txtNombre.setText(cliente.getNombre() != null ? cliente.getNombre() : "");
-        txtApellido1.setText(cliente.getPrimer_apellido() != null ? cliente.getPrimer_apellido() : "");
-        txtApellido2.setText(cliente.getSegundo_apellido() != null ? cliente.getSegundo_apellido() : "");
+        txtApellido1.setText(cliente.getPrimerApellido() != null ? cliente.getPrimerApellido() : "");
+        txtApellido2.setText(cliente.getSegundoApellido() != null ? cliente.getSegundoApellido() : "");
         txtDni.setText(cliente.getDni() != null ? cliente.getDni() : "");
         txtCiudad.setText(cliente.getCiudad() != null ? cliente.getCiudad() : "");
         txtProvincia.setText(cliente.getProvincia() != null ? cliente.getProvincia() : "");
         txtEmail.setText(cliente.getEmail() != null ? cliente.getEmail() : "");
         txtTelefono.setText(cliente.getTelefono() != null ? cliente.getTelefono() : "");
-        txtDireccion.setText(cliente.getDireccion() !=null ? cliente.getDireccion(): "");
-        txtCodigoPostal.setText(cliente.getCodigo_postal() != null ? cliente.getCodigo_postal(): "");
+        txtDireccion.setText(cliente.getDireccion() != null ? cliente.getDireccion() : "");
+        txtCodigoPostal.setText(cliente.getCodigo_postal() != null ? cliente.getCodigo_postal() : "");
     }
 
+    /**
+     * Implementación del método abstracto de validación de BaseDialog.
+     *
+     * @return true si los campos obligatorios están llenos y el email es válido
+     * (si se proporciona).
+     */
     @Override
     protected boolean validarCampos() {
         // Lógica de validación
         try {
+            // Validación de campos obligatorios
             if (txtNombre.getText().trim().isEmpty()) {
                 throw new IllegalArgumentException("Falta nombre.");
             }
@@ -76,40 +113,59 @@ public class ClienteDialog extends BaseDialog {
             if (txtDni.getText().trim().isEmpty()) {
                 throw new IllegalArgumentException("Falta DNI.");
             }
+            // Validación de email solo si se ha introducido algo.
             if (!txtEmail.getText().trim().isEmpty()) {
                 FormUtils.validarEmail(txtEmail.getText().trim());
             }
             return true;
         } catch (IllegalArgumentException ex) {
+            // Captura las excepciones de validación y muestra una advertencia.
             mostrarAdvertencia(ex.getMessage());
             return false;
         }
     }
 
+    /**
+     * Implementación del método abstracto de persistencia (Guardar/Actualizar)
+     * de BaseDialog.
+     *
+     * @throws Exception Si ocurre un error en la capa de servicio al
+     * crear/actualizar.
+     */
     @Override
     protected void guardarEntidad() throws Exception {
         // Lógica de negocio (CRUD)
         if (clienteActual == null) {
+            // Si es null, estamos en modo creación.
             clienteActual = new Cliente();
         }
+
+        // Mapeo de campos del formulario a la entidad Cliente.
         clienteActual.setNombre(txtNombre.getText().trim());
-        clienteActual.setPrimer_apellido(txtApellido1.getText().trim());
-        clienteActual.setSegundo_apellido(txtApellido2.getText().trim().isEmpty() ? null : txtApellido2.getText().trim());
+        clienteActual.setPrimerApellido(txtApellido1.getText().trim());
+        // El segundo apellido y otros campos opcionales se guardan como null si están vacíos.
+        clienteActual.setSegundoApellido(txtApellido2.getText().trim().isEmpty() ? null : txtApellido2.getText().trim());
         clienteActual.setDni(txtDni.getText().trim());
         clienteActual.setCiudad(txtCiudad.getText().trim());
         clienteActual.setProvincia(txtProvincia.getText().trim());
         clienteActual.setEmail(txtEmail.getText().trim().isEmpty() ? null : txtEmail.getText().trim());
         clienteActual.setDireccion(txtDireccion.getText().trim());
         clienteActual.setTelefono(txtTelefono.getText().trim().isEmpty() ? null : txtTelefono.getText().trim());
-        clienteActual.setCodigo_postal(txtCodigoPostal.getText().trim());
+        clienteActual.setCodigoPostal(txtCodigoPostal.getText().trim());
 
-        if (clienteActual.getId_cliente() <= 0) {
+        // Decide si crear o actualizar basándose en si el ID ya existe.
+        if (clienteActual.getIdCliente() <= 0) {
+            // Crea el cliente.
             clienteService.crearCliente(clienteActual);
         } else {
+            // Actualiza el cliente.
             clienteService.actualizarCliente(clienteActual);
         }
     }
 
+    /**
+     * Método autogenerado por el diseñador de GUI (NetBeans).
+     */
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {

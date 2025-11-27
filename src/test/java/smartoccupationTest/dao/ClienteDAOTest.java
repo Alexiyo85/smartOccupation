@@ -54,7 +54,7 @@ class ClienteDAOTest {
             boolean resultado = clienteDAO.insertar(c);
 
             assertTrue(resultado);
-            assertEquals(123, c.getId_cliente());
+            assertEquals(123, c.getIdCliente());
             verify(mockPs, times(1)).executeUpdate();
         }
     }
@@ -82,7 +82,7 @@ class ClienteDAOTest {
             conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(mockConn);
 
             Cliente c = crearCliente();
-            c.setId_cliente(10);
+            c.setIdCliente(10);
 
             when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
             when(mockPs.executeUpdate()).thenReturn(1);
@@ -154,7 +154,7 @@ class ClienteDAOTest {
             Cliente c = clienteDAO.obtenerPorId(10);
 
             assertNotNull(c);
-            assertEquals(10, c.getId_cliente());
+            assertEquals(10, c.getIdCliente());
             assertEquals("Juan", c.getNombre());
         }
     }
@@ -263,15 +263,15 @@ class ClienteDAOTest {
     private Cliente crearCliente() {
         Cliente c = new Cliente();
         c.setNombre("Juan");
-        c.setPrimer_apellido("Pérez");
-        c.setSegundo_apellido("Gómez");
+        c.setPrimerApellido("Pérez");
+        c.setSegundoApellido("Gómez");
         c.setDni("12345678A");
         c.setTelefono("600123123");
         c.setEmail("test@test.com");
         c.setDireccion("Calle Falsa 123");
         c.setCiudad("Madrid");
         c.setProvincia("Madrid");
-        c.setCodigo_postal("28000");
+        c.setCodigoPostal("28000");
         return c;
     }
 

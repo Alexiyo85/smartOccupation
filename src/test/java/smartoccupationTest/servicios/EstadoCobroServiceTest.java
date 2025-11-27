@@ -33,36 +33,36 @@ class EstadoCobroPanelTest {
 
         // Crear alquiler simulado
         Alquiler alquiler = new Alquiler();
-        alquiler.setNumero_expediente(101);
+        alquiler.setNumeroExpediente(101);
 
         Cliente cliente = new Cliente();
-        cliente.setId_cliente(1);
+        cliente.setIdCliente(1);
         cliente.setNombre("Juan");
-        cliente.setPrimer_apellido("Perez");
-        cliente.setSegundo_apellido("Lopez");
+        cliente.setPrimerApellido("Perez");
+        cliente.setSegundoApellido("Lopez");
         alquiler.setCliente(cliente);
 
         Vivienda vivienda = new Vivienda();
-        vivienda.setId_vivienda(1);
+        vivienda.setIdVivienda(1);
         vivienda.setDireccion("Calle Falsa 123");
         alquiler.setVivienda(vivienda);
 
-        alquiler.setPrecio_total_estimado(new BigDecimal("1000"));
+        alquiler.setPrecioTotalEstimado(new BigDecimal("1000"));
 
         when(alquilerService.obtenerTodos()).thenReturn(List.of(alquiler));
 
         // Crear pagos simulados
         Pago pago1 = new Pago();
         pago1.setId_pago(1);
-        pago1.setNumero_expediente(101);
+        pago1.setNumeroExpediente(101);
         pago1.setCantidad(new BigDecimal("300"));
-        pago1.setFecha_pago(LocalDate.now());
+        pago1.setFechaPago(LocalDate.now());
 
         Pago pago2 = new Pago();
         pago2.setId_pago(2);
-        pago2.setNumero_expediente(101);
+        pago2.setNumeroExpediente(101);
         pago2.setCantidad(new BigDecimal("700"));
-        pago2.setFecha_pago(LocalDate.now());
+        pago2.setFechaPago(LocalDate.now());
 
         when(pagoService.obtenerPagosPorExpediente(101)).thenReturn(List.of(pago1, pago2));
 
@@ -119,9 +119,9 @@ class EstadoCobroPanelTest {
     void testManejoPagoNull() {
         Pago pagoNull = new Pago();
         pagoNull.setId_pago(3);
-        pagoNull.setNumero_expediente(101);
+        pagoNull.setNumeroExpediente(101);
         pagoNull.setCantidad(null);
-        pagoNull.setFecha_pago(LocalDate.now());
+        pagoNull.setFechaPago(LocalDate.now());
 
         when(pagoService.obtenerPagosPorExpediente(101)).thenReturn(List.of(pagoNull));
 

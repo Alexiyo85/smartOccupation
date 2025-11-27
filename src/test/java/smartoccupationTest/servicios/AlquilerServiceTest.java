@@ -45,29 +45,29 @@ class AlquilerServiceTest {
 
         // Datos de prueba
         viviendaDisponible = new Vivienda();
-        viviendaDisponible.setId_vivienda(1);
-        viviendaDisponible.setPrecio_mensual(BigDecimal.valueOf(1000));
+        viviendaDisponible.setIdVivienda(1);
+        viviendaDisponible.setPrecioMensual(BigDecimal.valueOf(1000));
         viviendaDisponible.setEstado("disponible");
 
         estadoPendiente = new EstadoCobro();
-        estadoPendiente.setId_estado(1);
-        estadoPendiente.setNombre_estado("pendiente");
+        estadoPendiente.setIdEstado(1);
+        estadoPendiente.setNombreEstado("pendiente");
 
         cliente = new Cliente();
-        cliente.setId_cliente(1);
+        cliente.setIdCliente(1);
         cliente.setNombre("Juan");
-        cliente.setPrimer_apellido("Pérez");
-        cliente.setSegundo_apellido("Gómez");
+        cliente.setPrimerApellido("Pérez");
+        cliente.setSegundoApellido("Gómez");
     }
 
     @Test
     void testCrearAlquiler_exitoso() {
         Alquiler alquiler = new Alquiler();
-        alquiler.setId_vivienda(1);
-        alquiler.setId_cliente(1);
-        alquiler.setTiempo_meses(2);
-        alquiler.setTiempo_dias(15);
-        alquiler.setFecha_inicio(LocalDate.of(2025, 11, 1));
+        alquiler.setIdVivienda(1);
+        alquiler.setIdCliente(1);
+        alquiler.setTiempoMeses(2);
+        alquiler.setTiempoDias(15);
+        alquiler.setFechaInicio(LocalDate.of(2025, 11, 1));
 
         when(viviendaDAO.obtenerPorId(1)).thenReturn(viviendaDisponible);
         when(estadoDAO.obtenerPorNombre("pendiente")).thenReturn(estadoPendiente);
@@ -81,20 +81,20 @@ class AlquilerServiceTest {
         verify(viviendaDAO).actualizar(viviendaDisponible);
 
         // Comprobar cálculo de precio total
-        assertEquals(BigDecimal.valueOf(2500.00).setScale(2), alquiler.getPrecio_total_estimado());
+        assertEquals(BigDecimal.valueOf(2500.00).setScale(2), alquiler.getPrecioTotalEstimado());
         // Fecha fin estimada
-        assertEquals(LocalDate.of(2026, 1, 16), alquiler.getFecha_fin_estimada());
+        assertEquals(LocalDate.of(2026, 1, 16), alquiler.getFechaFinEstimada());
     }
 
     @Test
     void testCrearAlquiler_viviendaNoDisponible() {
         viviendaDisponible.setEstado("ocupado");
         Alquiler alquiler = new Alquiler();
-        alquiler.setId_vivienda(1);
-        alquiler.setId_cliente(1);
-        alquiler.setTiempo_meses(1);
-        alquiler.setTiempo_dias(0);
-        alquiler.setFecha_inicio(LocalDate.now());
+        alquiler.setIdVivienda(1);
+        alquiler.setIdCliente(1);
+        alquiler.setTiempoMeses(1);
+        alquiler.setTiempoDias(0);
+        alquiler.setFechaInicio(LocalDate.now());
 
         when(viviendaDAO.obtenerPorId(1)).thenReturn(viviendaDisponible);
 
@@ -104,12 +104,12 @@ class AlquilerServiceTest {
     @Test
     void testObtenerAlquiler_hydration() {
         Alquiler alquiler = new Alquiler();
-        alquiler.setNumero_expediente(123);
-        alquiler.setId_cliente(1);
-        alquiler.setId_vivienda(1);
-        alquiler.setTiempo_meses(1);
-        alquiler.setTiempo_dias(0);
-        alquiler.setFecha_inicio(LocalDate.of(2025,11,1));
+        alquiler.setNumeroExpediente(123);
+        alquiler.setIdCliente(1);
+        alquiler.setIdVivienda(1);
+        alquiler.setTiempoMeses(1);
+        alquiler.setTiempoDias(0);
+        alquiler.setFechaInicio(LocalDate.of(2025,11,1));
 
         when(alquilerDAO.obtenerPorId(123)).thenReturn(alquiler);
         when(clienteDAO.obtenerPorId(1)).thenReturn(cliente);
@@ -125,8 +125,8 @@ class AlquilerServiceTest {
     @Test
     void testEliminarAlquiler() {
         Alquiler alquiler = new Alquiler();
-        alquiler.setNumero_expediente(123);
-        alquiler.setId_vivienda(1);
+        alquiler.setNumeroExpediente(123);
+        alquiler.setIdVivienda(1);
         viviendaDisponible.setEstado("ocupado");
 
         when(alquilerDAO.obtenerPorId(123)).thenReturn(alquiler);
@@ -143,15 +143,15 @@ class AlquilerServiceTest {
     @Test
     void testObtenerPorNombreEstado() {
         EstadoCobro estado = new EstadoCobro();
-        estado.setId_estado(1);
-        estado.setNombre_estado("pendiente");
+        estado.setIdEstado(1);
+        estado.setNombreEstado("pendiente");
 
         Alquiler a1 = new Alquiler();
-        a1.setId_cliente(1);
-        a1.setId_vivienda(1);
+        a1.setIdCliente(1);
+        a1.setIdVivienda(1);
         Alquiler a2 = new Alquiler();
-        a2.setId_cliente(1);
-        a2.setId_vivienda(1);
+        a2.setIdCliente(1);
+        a2.setIdVivienda(1);
 
         when(estadoDAO.obtenerPorNombre("pendiente")).thenReturn(estado);
         when(alquilerDAO.obtenerPorEstado(1)).thenReturn(Arrays.asList(a1, a2));
@@ -170,10 +170,10 @@ class AlquilerServiceTest {
     @Test
     void testActualizarAlquiler() {
         Alquiler alquiler = new Alquiler();
-        alquiler.setNumero_expediente(1);
-        alquiler.setTiempo_meses(2);
-        alquiler.setTiempo_dias(5);
-        alquiler.setFecha_inicio(LocalDate.of(2025,11,1));
+        alquiler.setNumeroExpediente(1);
+        alquiler.setTiempoMeses(2);
+        alquiler.setTiempoDias(5);
+        alquiler.setFechaInicio(LocalDate.of(2025,11,1));
 
         when(alquilerDAO.actualizar(alquiler)).thenReturn(true);
 
@@ -185,11 +185,11 @@ class AlquilerServiceTest {
     @Test
     void testObtenerTodos() {
         Alquiler a1 = new Alquiler();
-        a1.setId_cliente(1);
-        a1.setId_vivienda(1);
+        a1.setIdCliente(1);
+        a1.setIdVivienda(1);
         Alquiler a2 = new Alquiler();
-        a2.setId_cliente(1);
-        a2.setId_vivienda(1);
+        a2.setIdCliente(1);
+        a2.setIdVivienda(1);
 
         when(alquilerDAO.obtenerTodos()).thenReturn(Arrays.asList(a1, a2));
         when(clienteDAO.obtenerPorId(1)).thenReturn(cliente);
@@ -207,8 +207,8 @@ class AlquilerServiceTest {
     @Test
     void testObtenerPorCliente() {
         Alquiler a = new Alquiler();
-        a.setId_cliente(1);
-        a.setId_vivienda(1);
+        a.setIdCliente(1);
+        a.setIdVivienda(1);
 
         when(alquilerDAO.obtenerPorCliente(1)).thenReturn(List.of(a));
         when(clienteDAO.obtenerPorId(1)).thenReturn(cliente);
@@ -223,8 +223,8 @@ class AlquilerServiceTest {
     @Test
     void testObtenerPorVivienda() {
         Alquiler a = new Alquiler();
-        a.setId_cliente(1);
-        a.setId_vivienda(1);
+        a.setIdCliente(1);
+        a.setIdVivienda(1);
 
         when(alquilerDAO.obtenerPorVivienda(1)).thenReturn(List.of(a));
         when(clienteDAO.obtenerPorId(1)).thenReturn(cliente);

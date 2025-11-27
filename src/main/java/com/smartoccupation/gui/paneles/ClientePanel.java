@@ -6,47 +6,71 @@ import com.smartoccupation.modelo.Cliente;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
-import javax.swing.table.TableRowSorter; // 👈 NUEVO: Importación necesaria
+import javax.swing.table.TableRowSorter; // 👈 NUEVO: Importación necesaria para ordenar y filtrar
 import java.awt.*;
 import java.util.List;
 
+/**
+ * Panel de la Interfaz Gráfica (GUI) para la gestión y visualización de
+ * Clientes. 🧑‍🤝‍🧑 Permite crear, editar, eliminar y aplicar filtros a la
+ * lista de clientes.
+ *
+ * @author Alex Fernández
+ * @version 1.0
+ * @since 2025-11-27
+ */
 public class ClientePanel extends javax.swing.JPanel {
 
+    // Referencia al servicio de lógica de negocio para Clientes, inyectada.
     private final ClienteService clienteService;
-    // 1. 👈 NUEVO: Campo para gestionar el filtro/ordenación de la tabla
+    // 1. 👈 NUEVO: Campo para gestionar el filtro/ordenación de la tabla.
     private TableRowSorter<DefaultTableModel> sorter;
 
 // ============================
-//         CONSTRUCTOR
+//       CONSTRUCTOR
 // ============================
+    /**
+     * Constructor del panel, inyectando la dependencia del servicio de
+     * clientes.
+     *
+     * @param clienteService Servicio para la gestión de la lógica de negocio de
+     * clientes.
+     */
     public ClientePanel(ClienteService clienteService) {
         this.clienteService = clienteService;
-        initComponents();
-        cargarTablaClientes();
-        configurarEventos();
+        initComponents(); // Inicializa los componentes visuales autogenerados.
+        cargarTablaClientes(); // Rellena la tabla con los datos de los clientes.
+        configurarEventos(); // Configura los listeners para los botones y el campo de búsqueda.
     }
 
 // ===========================================
-//  CARGA LA TABLA CON LOS CLIENTES EXISTENTES (MODIFICADO)
+//  CARGA LA TABLA CON LOS CLIENTES EXISTENTES (MODIFICADO)
 // ===========================================
+    /**
+     * Obtiene todos los clientes del servicio y rellena la {@code JTable} con
+     * sus datos. También configura el {@code TableRowSorter}.
+     */
     private void cargarTablaClientes() {
 
-        List<Cliente> lista = clienteService.obtenerTodos();
+        List<Cliente> lista = clienteService.obtenerTodos(); // Obtiene la lista de clientes.
 
+        // Definición de las columnas de la tabla.
         String[] columnas = {
             "ID", "Nombre", "Primer Apellido", "Segundo Apellido",
             "DNI", "Teléfono", "Email", "Dirección", "Ciudad", "Provincia",
             "Código Postal"
         };
 
+        // Inicializa la matriz de datos con el tamaño de la lista de clientes.
         Object[][] datos = new Object[lista.size()][columnas.length];
 
+        // Rellena la matriz de datos con los atributos de cada objeto Cliente.
         for (int i = 0; i < lista.size(); i++) {
             Cliente c = lista.get(i);
-            datos[i][0] = c.getId_cliente();
+            datos[i][0] = c.getIdCliente();
             datos[i][1] = c.getNombre();
-            datos[i][2] = c.getPrimer_apellido();
-            datos[i][3] = c.getSegundo_apellido();
+            datos[i][2] = c.getPrimerApellido();
+            datos[i][3] = c.getSegundoApellido();
             datos[i][4] = c.getDni();
             datos[i][5] = c.getTelefono();
             datos[i][6] = c.getEmail();
@@ -58,41 +82,50 @@ public class ClientePanel extends javax.swing.JPanel {
 
         // 2. Creamos el modelo
         DefaultTableModel modelo = new DefaultTableModel(datos, columnas) {
+            // Sobrescribe para hacer que todas las celdas de la tabla sean no editables.
             @Override
             public boolean isCellEditable(int row, int column) {
                 return false;
             }
         };
 
-        tablaClientes.setModel(modelo);
+        tablaClientes.setModel(modelo); // Asigna el modelo a la JTable.
 
-        // 3. 👈 NUEVO: Creamos y asignamos el sorter al modelo de la tabla
+        // 3. 👈 NUEVO: Creamos y asignamos el sorter al modelo de la tabla.
+        // Esto permite la ordenación al hacer clic en las cabeceras y la funcionalidad de filtrado.
         sorter = new TableRowSorter<>(modelo);
         tablaClientes.setRowSorter(sorter);
     }
 
 // ============================================
-//       CONFIGURACIÓN DE LOS BOTONES
+//       CONFIGURACIÓN DE LOS BOTONES
 // ============================================
+    /**
+     * Configura los {@code ActionListener} para los botones y el
+     * {@code DocumentListener} para el campo de búsqueda.
+     */
     private void configurarEventos() {
 
-        // BOTÓN AÑADIR
+        // BOTÓN AÑADIR: Abre el diálogo en modo creación (cliente nulo).
         btnAñadirCliente.addActionListener(e -> abrirDialogoCliente(null));
 
-        // BOTÓN EDITAR
+        // BOTÓN EDITAR: Abre el diálogo en modo edición.
         btnEditarCliente.addActionListener(e -> {
-            int fila = tablaClientes.getSelectedRow();
+            int fila = tablaClientes.getSelectedRow(); // Obtiene el índice de la fila seleccionada en la VISTA.
             if (fila == -1) {
+                // Muestra advertencia si no hay selección.
                 JOptionPane.showMessageDialog(this, "Seleccione un cliente.", "Aviso", JOptionPane.WARNING_MESSAGE);
                 return;
             }
             // Importante: Si se usa sorter, el ID debe obtenerse del modelo subyacente.
-            // Para obtener la fila real del modelo subyacente:
+            // convertRowIndexToModel convierte el índice de la VISTA al índice del MODELO.
             int modeloFila = tablaClientes.convertRowIndexToModel(fila);
 
             // ID está en la columna 0 del modelo subyacente
             int id = (int) tablaClientes.getModel().getValueAt(modeloFila, 0);
+            // Obtiene el objeto Cliente completo usando el ID.
             Cliente cliente = clienteService.obtenerCliente(id);
+            // Abre el diálogo en modo edición.
             abrirDialogoCliente(cliente);
         });
 
@@ -100,39 +133,46 @@ public class ClientePanel extends javax.swing.JPanel {
         btnEliminarCliente.addActionListener(e -> eliminarCliente());
 
         // BÚSQUEDA EN TIEMPO REAL
+        // Añade un DocumentListener para reaccionar a los cambios de texto en el campo de búsqueda.
         txtBuscarCliente.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
 
             public void insertUpdate(javax.swing.event.DocumentEvent e) {
-                filtrarTabla();
+                filtrarTabla(); // Se llama al método de filtro al insertar texto.
             }
 
             public void removeUpdate(javax.swing.event.DocumentEvent e) {
-                filtrarTabla();
+                filtrarTabla(); // Se llama al método de filtro al borrar texto.
             }
 
             public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                // Este método es para atributos de texto, no cambios de contenido (raramente usado en JTextField).
                 filtrarTabla();
             }
         });
     }
 
 // ===========================
-//      FILTRO DE BÚSQUEDA (MODIFICADO Y CORREGIDO)
+//       FILTRO DE BÚSQUEDA (MODIFICADO Y CORREGIDO)
 // ===========================
+    /**
+     * Aplica un filtro de expresión regular a la tabla basado en el texto del
+     * campo de búsqueda.
+     */
     private void filtrarTabla() {
-        String busqueda = txtBuscarCliente.getText().trim();
+        String busqueda = txtBuscarCliente.getText().trim(); // Obtiene y limpia el texto de búsqueda.
 
         if (sorter == null) {
-            // Evitar fallo si se llama antes de cargar la tabla.
+            // Evitar fallo si se llama antes de cargar la tabla y asignar el sorter.
             return;
         }
 
         if (busqueda.isEmpty()) {
-            // Si el campo está vacío, no hay filtro.
+            // Si el campo está vacío, quita cualquier filtro activo.
             sorter.setRowFilter(null);
         } else {
             try {
                 // 4. 👈 NUEVO: Aplicar el filtro usando una expresión regular.
+                // RowFilter.regexFilter() filtra las filas cuya información coincida con el patrón.
                 // "(?i)" ignora mayúsculas/minúsculas.
                 sorter.setRowFilter(RowFilter.regexFilter("(?i)" + busqueda));
             } catch (java.util.regex.PatternSyntaxException e) {
@@ -143,42 +183,51 @@ public class ClientePanel extends javax.swing.JPanel {
     }
 
 // ===========================
-//    ABRIR DIÁLOGO CLIENTE
+//     ABRIR DIÁLOGO CLIENTE
 // ===========================
+    /**
+     * Abre el diálogo de creación o edición de clientes.
+     *
+     * @param cliente El objeto Cliente a editar (o null para crear uno nuevo).
+     */
     private void abrirDialogoCliente(Cliente cliente) {
-        // Obtenemos la ventana padre (sea JFrame o JDialog)
+        // Obtenemos la ventana padre (sea JFrame o JDialog) para que el diálogo sea modal relativo a ella.
         Window parent = SwingUtilities.getWindowAncestor(this);
 
         ClienteDialog dialog;
 
         // El constructor de ClienteDialog ahora acepta Window, así que esto es seguro
         if (cliente == null) {
+            // Modo Creación
             dialog = new ClienteDialog(parent, true, clienteService);
         } else {
+            // Modo Edición
             dialog = new ClienteDialog(parent, true, clienteService, cliente);
         }
 
-        dialog.setLocationRelativeTo(parent);
-        dialog.setVisible(true);
+        dialog.setLocationRelativeTo(parent); // Centra el diálogo respecto a la ventana padre.
+        dialog.setVisible(true); // Muestra el diálogo y espera a que se cierre.
 
         // Recargar la tabla al cerrar el diálogo
         cargarTablaClientes();
-        filtrarTabla(); // Aplicar el filtro si había alguno
+        filtrarTabla(); // Volver a aplicar el filtro si había alguno para mantener el contexto.
     }
 
 // ===========================
-//     ELIMINAR CLIENTE
+//       ELIMINAR CLIENTE
 // ===========================
+    /**
+     * Maneja el proceso de eliminación de un cliente seleccionado.
+     */
     private void eliminarCliente() {
-        int fila = tablaClientes.getSelectedRow();
+        int fila = tablaClientes.getSelectedRow(); // Fila seleccionada en la VISTA.
 
         if (fila == -1) {
             JOptionPane.showMessageDialog(this, "Seleccione un cliente.", "Aviso", JOptionPane.WARNING_MESSAGE);
             return;
         }
 
-        // Importante: Debemos obtener el ID de la fila en el modelo, no en la vista,
-        // ya que el sorter podría haber reordenado o filtrado la vista.
+        // Importante: Debemos obtener el ID de la fila en el MODELO.
         int modeloFila = tablaClientes.convertRowIndexToModel(fila);
         int id = (int) tablaClientes.getModel().getValueAt(modeloFila, 0);
 
@@ -194,15 +243,21 @@ public class ClientePanel extends javax.swing.JPanel {
 
         if (confirm == JOptionPane.YES_OPTION) {
             try {
+                // Llama al servicio para eliminar el cliente.
                 clienteService.eliminarCliente(id);
-                cargarTablaClientes();
+                cargarTablaClientes(); // Recarga la tabla tras el éxito.
                 JOptionPane.showMessageDialog(this, "Cliente eliminado correctamente.");
             } catch (Exception e) {
+                // Muestra un mensaje de error si la eliminación falla (ej: por FK constraint).
                 JOptionPane.showMessageDialog(this, "Error al eliminar: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
 
+    /**
+     * Método autogenerado por el diseñador de GUI para inicializar los
+     * componentes.
+     */
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {

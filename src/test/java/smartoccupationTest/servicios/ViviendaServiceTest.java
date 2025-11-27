@@ -37,7 +37,7 @@ class ViviendaServiceTest {
     @Test
     void testActualizarVivienda() {
         Vivienda v = new Vivienda();
-        v.setId_vivienda(1);
+        v.setIdVivienda(1);
         when(viviendaDAO.actualizar(v)).thenReturn(true);
 
         boolean exito = service.actualizarVivienda(v);
@@ -48,7 +48,7 @@ class ViviendaServiceTest {
     @Test
     void testEliminarViviendaDisponible() {
         Vivienda v = new Vivienda();
-        v.setId_vivienda(1);
+        v.setIdVivienda(1);
         v.setEstado("disponible");
 
         when(viviendaDAO.obtenerPorId(1)).thenReturn(v);
@@ -62,7 +62,7 @@ class ViviendaServiceTest {
     @Test
     void testEliminarViviendaNoDisponible() {
         Vivienda v = new Vivienda();
-        v.setId_vivienda(1);
+        v.setIdVivienda(1);
         v.setEstado("ocupado");
 
         when(viviendaDAO.obtenerPorId(1)).thenReturn(v);
@@ -82,13 +82,13 @@ class ViviendaServiceTest {
     @Test
     void testObtenerVivienda() {
         Vivienda v = new Vivienda();
-        v.setId_vivienda(1);
+        v.setIdVivienda(1);
 
         when(viviendaDAO.obtenerPorId(1)).thenReturn(v);
         Vivienda result = service.obtenerVivienda(1);
 
         assertThat(result).isNotNull();
-        assertThat(result.getId_vivienda()).isEqualTo(1);
+        assertThat(result.getIdVivienda()).isEqualTo(1);
     }
 
     @Test

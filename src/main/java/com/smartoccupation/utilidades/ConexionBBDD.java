@@ -3,6 +3,23 @@ package com.smartoccupation.utilidades;
 import javax.swing.JOptionPane;
 import java.sql.*;
 
+/**
+ * Clase de utilidad para gestionar la conexión a la base de datos MySQL.
+ * <p>
+ * Se encarga de:
+ * <ul>
+ * <li>Establecer la conexión con el servidor MySQL.</li>
+ * <li>Verificar si la base de datos existe; si no, ofrece crearla.</li>
+ * <li>Crear las tablas de la aplicación si no existen.</li>
+ * <li>Insertar los datos iniciales necesarios (estados de cobro).</li>
+ * </ul>
+ * Esta clase es esencial para el inicio y la configuración de la aplicación.
+ * </p>
+ *
+ * @author Alex Fernández
+ * @version 1.0
+ * @since 2025-11-27
+ */
 public class ConexionBBDD {
 
     private static final String DB_NAME = "smartOccupation_db";
@@ -11,23 +28,35 @@ public class ConexionBBDD {
     private static final String USER = "root";
     private static final String PASSWORD = "User1234";
 
+    // Bandera para asegurar que la estructura (DB y tablas) solo se verifica una vez por ejecución.
     private static boolean estructuraVerificada = false;
 
+    /**
+     * Establece una conexión con la base de datos.
+     * <p>
+     * Este método gestiona el ciclo de vida de la conexión, incluyendo la
+     * verificación y creación de la base de datos y las tablas si es necesario.
+     * </p>
+     *
+     * @return Una conexión activa a la base de datos {@code smartOccupation_db}, o {@code null} si la conexión falla o es cancelada por el usuario.
+     */
     public static Connection conectar() {
         LogManager.info("Aplicación iniciada"); // <-- LOG
 
         try {
+            // 1. Conectar al servidor sin especificar DB para verificar su existencia
             Connection serverConnection = DriverManager.getConnection(URL_SERVER, USER, PASSWORD);
             LogManager.info("Conexión a MySQL correcta"); // <-- LOG
 
             if (!estructuraVerificada) {
 
+                // 2. Verificar y/o crear la base de datos
                 if (!existeBaseDeDatos(serverConnection)) {
                     LogManager.info("Base de datos no encontrada"); // <-- LOG
 
                     int respuesta = JOptionPane.showConfirmDialog(
                             null,
-                            "La base de datos no existe.\n¿Deseas crearla ahora?",
+                            "La base de datos '" + DB_NAME + "' no existe.\n¿Deseas crearla ahora?",
                             "Base de datos no encontrada",
                             JOptionPane.YES_NO_OPTION
                     );
@@ -37,18 +66,26 @@ public class ConexionBBDD {
                         LogManager.info("Base de datos creada correctamente"); // <-- LOG
                     } else {
                         LogManager.error("El usuario canceló la creación de la base de datos"); // <-- LOG
+                        serverConnection.close();
                         return null;
                     }
                 }
             }
+            
+            // Cerrar conexión al servidor antes de abrir la específica a la DB
+            if (serverConnection != null && !serverConnection.isClosed()) {
+                serverConnection.close();
+            }
 
+            // 3. Conectar a la base de datos específica
             Connection dbConnection = DriverManager.getConnection(URL_DB, USER, PASSWORD);
 
             if (!estructuraVerificada) {
+                // 4. Crear tablas e insertar datos iniciales si no existen
                 crearTablasSiNoExisten(dbConnection);
                 insertarEstadosCobroIniciales(dbConnection);
                 estructuraVerificada = true;
-                LogManager.info("Tablas verificadas"); // <-- LOG
+                LogManager.info("Estructura de la base de datos verificada y actualizada"); // <-- LOG
             }
 
             return dbConnection;
@@ -56,10 +93,11 @@ public class ConexionBBDD {
         } catch (SQLException e) {
             LogManager.error("Error al conectar a MySQL", e); // <-- LOG
 
+            // Mostrar error amigable al usuario
             JOptionPane.showMessageDialog(
                     null,
                     "No se pudo conectar a MySQL.\n"
-                    + "Verifica que MySQL esté instalado y en ejecución.\n\n"
+                    + "Verifica que MySQL esté instalado y en ejecución, y que las credenciales sean correctas.\n\n"
                     + "Detalles: " + e.getMessage(),
                     "Error de conexión",
                     JOptionPane.ERROR_MESSAGE
@@ -68,6 +106,13 @@ public class ConexionBBDD {
         }
     }
 
+    /**
+     * Verifica si la base de datos {@code DB_NAME} ya existe en el servidor MySQL.
+     *
+     * @param conn La conexión al servidor MySQL (sin especificar base de datos).
+     * @return {@code true} si la base de datos existe, {@code false} en caso contrario.
+     * @throws SQLException Si ocurre un error al obtener metadatos.
+     */
     private static boolean existeBaseDeDatos(Connection conn) throws SQLException {
         ResultSet rs = conn.getMetaData().getCatalogs();
         while (rs.next()) {
@@ -78,6 +123,11 @@ public class ConexionBBDD {
         return false;
     }
 
+    /**
+     * Crea la base de datos {@code DB_NAME} en el servidor MySQL.
+     *
+     * @param conn La conexión al servidor MySQL (sin especificar base de datos).
+     */
     private static void crearBaseDeDatos(Connection conn) {
         try (Statement stmt = conn.createStatement()) {
             stmt.executeUpdate("CREATE DATABASE " + DB_NAME);
@@ -91,9 +141,15 @@ public class ConexionBBDD {
         }
     }
 
+    /**
+     * Crea todas las tablas de la aplicación si no existen, utilizando `CREATE TABLE IF NOT EXISTS`.
+     *
+     * @param conn La conexión a la base de datos {@code DB_NAME}.
+     */
     public static void crearTablasSiNoExisten(Connection conn) {
         try (Statement stmt = conn.createStatement()) {
 
+            // Tabla CLIENTES
             stmt.executeUpdate("""
                 CREATE TABLE IF NOT EXISTS clientes (
                     id_cliente INT AUTO_INCREMENT PRIMARY KEY,
@@ -110,6 +166,7 @@ public class ConexionBBDD {
                 );
             """);
 
+            // Tabla VIVIENDAS
             stmt.executeUpdate("""
                 CREATE TABLE IF NOT EXISTS viviendas (
                     id_vivienda INT AUTO_INCREMENT PRIMARY KEY,
@@ -126,6 +183,7 @@ public class ConexionBBDD {
                 );
             """);
 
+            // Tabla ESTADOS_COBRO (Tabla de Catálogo)
             stmt.executeUpdate("""
                 CREATE TABLE IF NOT EXISTS estados_cobro (
                     id_estado INT AUTO_INCREMENT PRIMARY KEY,
@@ -133,6 +191,7 @@ public class ConexionBBDD {
                 );
             """);
 
+            // Tabla ALQUILERES (Depende de clientes, viviendas y estados_cobro)
             stmt.executeUpdate("""
                 CREATE TABLE IF NOT EXISTS alquileres (
                     numero_expediente INT AUTO_INCREMENT PRIMARY KEY,
@@ -150,6 +209,7 @@ public class ConexionBBDD {
                 );
             """);
 
+            // Tabla PAGOS (Depende de alquileres)
             stmt.executeUpdate("""
                 CREATE TABLE IF NOT EXISTS pagos (
                     id_pago INT AUTO_INCREMENT PRIMARY KEY,
@@ -170,6 +230,12 @@ public class ConexionBBDD {
         }
     }
 
+    /**
+     * Inserta los valores iniciales para la tabla de catálogo {@code estados_cobro}
+     * si aún no existen (utiliza {@code INSERT IGNORE}).
+     *
+     * @param conn La conexión a la base de datos {@code DB_NAME}.
+     */
     private static void insertarEstadosCobroIniciales(Connection conn) {
         try (Statement stmt = conn.createStatement()) {
 
@@ -194,14 +260,12 @@ public class ConexionBBDD {
     }
     
     /**
-     * Método público para llamar a insertarEstadosCobroIniciales desde tests.
+     * Método auxiliar público para fines de prueba (tests) que permite
+     * forzar la inserción de estados iniciales.
+     *
      * @param conn Conexión a la base de datos.
      */
     public static void insertarEstadosInicialesPublic(Connection conn) {
         ConexionBBDD.insertarEstadosCobroIniciales(conn);
     }
-    
-    
-    
-    
 }

@@ -42,14 +42,14 @@ class AlquilerDAOTest {
     // Helper: construir un Alquiler básico
     private Alquiler createAlquilerBase() {
         Alquiler a = new Alquiler();
-        a.setFecha_inicio(LocalDate.of(2024, 1, 1));
-        a.setTiempo_meses(1);
-        a.setTiempo_dias(10);
-        a.setFecha_fin_estimada(a.getFecha_inicio().plusMonths(1).plusDays(10)); // 2024-02-11
-        a.setPrecio_total_estimado(new BigDecimal("500.00"));
-        a.setId_cliente(2);
-        a.setId_vivienda(3);
-        a.setId_estado_cobro(1);
+        a.setFechaInicio(LocalDate.of(2024, 1, 1));
+        a.setTiempoMeses(1);
+        a.setTiempoDias(10);
+        a.setFechaFinEstimada(a.getFechaInicio().plusMonths(1).plusDays(10)); // 2024-02-11
+        a.setPrecioTotalEstimado(new BigDecimal("500.00"));
+        a.setIdCliente(2);
+        a.setIdVivienda(3);
+        a.setIdEstadoCobro(1);
         return a;
     }
 
@@ -85,8 +85,8 @@ class AlquilerDAOTest {
             boolean result = dao.insertar(a);
 
             assertTrue(result);
-            assertEquals(123, a.getNumero_expediente());
-            verify(mockPs).setDate(eq(4), eq(Date.valueOf(a.getFecha_fin_estimada()))); // Verifica fecha fin NO nula
+            assertEquals(123, a.getNumeroExpediente());
+            verify(mockPs).setDate(eq(4), eq(Date.valueOf(a.getFechaFinEstimada()))); // Verifica fecha fin NO nula
         }
     }
 
@@ -102,11 +102,11 @@ class AlquilerDAOTest {
             when(mockRsGen.getInt(1)).thenReturn(124);
 
             Alquiler a = createAlquilerBase();
-            a.setFecha_fin_estimada(null); // Establece a NULL
+            a.setFechaFinEstimada(null); // Establece a NULL
             boolean result = dao.insertar(a);
 
             assertTrue(result);
-            assertEquals(124, a.getNumero_expediente());
+            assertEquals(124, a.getNumeroExpediente());
             verify(mockPs).setNull(eq(4), eq(Types.DATE)); // Verifica setNull
         }
     }
@@ -125,7 +125,7 @@ class AlquilerDAOTest {
             boolean result = dao.insertar(a);
 
             assertFalse(result);
-            assertEquals(0, a.getNumero_expediente()); // No se debe setear el expediente
+            assertEquals(0, a.getNumeroExpediente()); // No se debe setear el expediente
         }
     }
 
@@ -156,12 +156,12 @@ class AlquilerDAOTest {
             when(mockPs.executeUpdate()).thenReturn(1);
 
             Alquiler a = createAlquilerBase();
-            a.setNumero_expediente(55);
+            a.setNumeroExpediente(55);
 
             boolean result = dao.actualizar(a);
 
             assertTrue(result);
-            verify(mockPs).setDate(eq(4), eq(Date.valueOf(a.getFecha_fin_estimada())));
+            verify(mockPs).setDate(eq(4), eq(Date.valueOf(a.getFechaFinEstimada())));
             verify(mockPs).setInt(eq(9), eq(55)); // Verifica el WHERE clause
         }
     }
@@ -175,8 +175,8 @@ class AlquilerDAOTest {
             when(mockPs.executeUpdate()).thenReturn(1);
 
             Alquiler a = createAlquilerBase();
-            a.setNumero_expediente(56);
-            a.setFecha_fin_estimada(null); // Establece a NULL
+            a.setNumeroExpediente(56);
+            a.setFechaFinEstimada(null); // Establece a NULL
 
             boolean result = dao.actualizar(a);
 
@@ -194,7 +194,7 @@ class AlquilerDAOTest {
             when(mockPs.executeUpdate()).thenReturn(0); // Cero filas afectadas
 
             Alquiler a = createAlquilerBase();
-            a.setNumero_expediente(66);
+            a.setNumeroExpediente(66);
 
             boolean result = dao.actualizar(a);
 
@@ -272,8 +272,8 @@ class AlquilerDAOTest {
             Alquiler a = dao.obtenerPorId(42);
 
             assertNotNull(a);
-            assertEquals(42, a.getNumero_expediente());
-            assertEquals(fechaFin, a.getFecha_fin_estimada());
+            assertEquals(42, a.getNumeroExpediente());
+            assertEquals(fechaFin, a.getFechaFinEstimada());
             verify(mockPs).setInt(1, 42);
         }
     }
@@ -339,7 +339,7 @@ class AlquilerDAOTest {
 
             assertNotNull(lista);
             assertEquals(2, lista.size());
-            assertEquals(2, lista.get(1).getNumero_expediente());
+            assertEquals(2, lista.get(1).getNumeroExpediente());
         }
     }
     
@@ -517,8 +517,8 @@ class AlquilerDAOTest {
             Alquiler a = dao.obtenerAlquilerActivoPorVivienda(50);
             
             assertNotNull(a);
-            assertEquals(401, a.getNumero_expediente());
-            assertEquals(50, a.getId_vivienda());
+            assertEquals(401, a.getNumeroExpediente());
+            assertEquals(50, a.getIdVivienda());
             verify(mockPs).setInt(1, 50);
         }
     }

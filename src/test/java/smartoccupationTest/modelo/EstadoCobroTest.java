@@ -11,18 +11,18 @@ class EstadoCobroTest {
     void constructorCompletoAsignaValores() {
         EstadoCobro e = new EstadoCobro(1, "pagado");
 
-        assertEquals(1, e.getId_estado());
-        assertEquals("pagado", e.getNombre_estado());
+        assertEquals(1, e.getIdEstado());
+        assertEquals("pagado", e.getNombreEstado());
     }
 
     @Test
     void settersFuncionanCorrectamente() {
         EstadoCobro e = new EstadoCobro();
-        e.setId_estado(2);
-        e.setNombre_estado("pendiente");
+        e.setIdEstado(2);
+        e.setNombreEstado("pendiente");
 
-        assertEquals(2, e.getId_estado());
-        assertEquals("pendiente", e.getNombre_estado());
+        assertEquals(2, e.getIdEstado());
+        assertEquals("pendiente", e.getNombreEstado());
     }
 
     @Test

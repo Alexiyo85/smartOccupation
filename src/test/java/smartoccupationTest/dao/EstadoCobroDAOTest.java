@@ -51,8 +51,8 @@ class EstadoCobroDAOTest {
         List<EstadoCobro> lista = dao.obtenerTodos();
 
         assertThat(lista).hasSize(2);
-        assertThat(lista.get(0).getNombre_estado()).isEqualTo("pendiente");
-        assertThat(lista.get(1).getNombre_estado()).isEqualTo("pagado");
+        assertThat(lista.get(0).getNombreEstado()).isEqualTo("pendiente");
+        assertThat(lista.get(1).getNombreEstado()).isEqualTo("pagado");
     }
 
     @Test
@@ -78,7 +78,7 @@ class EstadoCobroDAOTest {
         EstadoCobro estado = dao.obtenerPorId(1);
 
         assertThat(estado).isNotNull();
-        assertThat(estado.getNombre_estado()).isEqualTo("pendiente");
+        assertThat(estado.getNombreEstado()).isEqualTo("pendiente");
     }
 
     @Test
@@ -114,7 +114,7 @@ class EstadoCobroDAOTest {
         EstadoCobro estado = dao.obtenerPorNombre("pagado");
 
         assertThat(estado).isNotNull();
-        assertThat(estado.getId_estado()).isEqualTo(2);
+        assertThat(estado.getIdEstado()).isEqualTo(2);
     }
 
     @Test
