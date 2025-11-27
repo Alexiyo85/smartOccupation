@@ -3,7 +3,6 @@ package smartoccupationTest.dao;
 import com.smartoccupation.dao.AlquilerDAO;
 import com.smartoccupation.modelo.Alquiler;
 import com.smartoccupation.utilidades.ConexionBBDD;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
@@ -20,17 +19,24 @@ import static org.mockito.Mockito.*;
 class AlquilerDAOTest {
 
     private AlquilerDAO dao;
-    private MockedStatic<ConexionBBDD> conexionMockStatic;
+
+    // Mocks JDBC necesarios para stubbing
+    private Connection mockConn;
+    private PreparedStatement mockPs;
+    private Statement mockStatement;
+    private ResultSet mockRs; // General ResultSet (para SELECTs)
+    private ResultSet mockRsGen; // Generated Keys ResultSet (para INSERTs)
 
     @BeforeEach
     void setUp() {
         dao = new AlquilerDAO();
-        conexionMockStatic = mockStatic(ConexionBBDD.class);
-    }
 
-    @AfterEach
-    void tearDown() {
-        conexionMockStatic.close();
+        // Inicializar los mocks de JDBC
+        mockConn = mock(Connection.class);
+        mockPs = mock(PreparedStatement.class);
+        mockStatement = mock(Statement.class);
+        mockRs = mock(ResultSet.class);
+        mockRsGen = mock(ResultSet.class);
     }
 
     // Helper: construir un Alquiler básico
@@ -39,7 +45,7 @@ class AlquilerDAOTest {
         a.setFecha_inicio(LocalDate.of(2024, 1, 1));
         a.setTiempo_meses(1);
         a.setTiempo_dias(10);
-        a.setFecha_fin_estimada(a.getFecha_inicio().plusMonths(1).plusDays(10));
+        a.setFecha_fin_estimada(a.getFecha_inicio().plusMonths(1).plusDays(10)); // 2024-02-11
         a.setPrecio_total_estimado(new BigDecimal("500.00"));
         a.setId_cliente(2);
         a.setId_vivienda(3);
@@ -47,372 +53,499 @@ class AlquilerDAOTest {
         return a;
     }
 
+    // Helper: Mockear los resultados de una fila de Alquiler para el ResultSet
+    private void mockResultadoAlquiler(ResultSet rs, int expediente, LocalDate fechaInicio, LocalDate fechaFinEstimada, BigDecimal precio, int idCliente, int idVivienda, int idEstado) throws SQLException {
+        when(rs.getInt("numero_expediente")).thenReturn(expediente);
+        when(rs.getDate("fecha_inicio")).thenReturn(Date.valueOf(fechaInicio));
+        when(rs.getInt("tiempo_meses")).thenReturn(1);
+        when(rs.getInt("tiempo_dias")).thenReturn(10);
+        when(rs.getDate("fecha_fin_estimada")).thenReturn(fechaFinEstimada != null ? Date.valueOf(fechaFinEstimada) : null);
+        when(rs.getBigDecimal("precio_total_estimado")).thenReturn(precio);
+        when(rs.getInt("id_cliente")).thenReturn(idCliente);
+        when(rs.getInt("id_vivienda")).thenReturn(idVivienda);
+        when(rs.getInt("id_estado_cobro")).thenReturn(idEstado);
+    }
+
+    // =========================================================================
+    // 1. INSERTAR
+    // =========================================================================
+
     @Test
-    void insertar_devuelveTrue_y_seteaNumeroExpediente_siExecuteUpdatePositivo_yGeneratedKeyPresente() throws Exception {
-        Connection conn = mock(Connection.class);
-        PreparedStatement ps = mock(PreparedStatement.class);
-        ResultSet rsGen = mock(ResultSet.class);
+    void insertar_devuelveTrue_y_seteaNumeroExpediente_conFechaFin() throws Exception {
+        try (MockedStatic<ConexionBBDD> conexionMockStatic = mockStatic(ConexionBBDD.class)) {
+            conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(mockConn);
 
-        when(conn.prepareStatement(anyString(), eq(Statement.RETURN_GENERATED_KEYS))).thenReturn(ps);
-        when(ps.executeUpdate()).thenReturn(1);
-        when(ps.getGeneratedKeys()).thenReturn(rsGen);
-        when(rsGen.next()).thenReturn(true);
-        when(rsGen.getInt(1)).thenReturn(123);
+            when(mockConn.prepareStatement(anyString(), eq(Statement.RETURN_GENERATED_KEYS))).thenReturn(mockPs);
+            when(mockPs.executeUpdate()).thenReturn(1);
+            when(mockPs.getGeneratedKeys()).thenReturn(mockRsGen);
+            when(mockRsGen.next()).thenReturn(true);
+            when(mockRsGen.getInt(1)).thenReturn(123);
 
-        conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(conn);
+            Alquiler a = createAlquilerBase();
+            boolean result = dao.insertar(a);
 
-        Alquiler a = createAlquilerBase();
-        boolean result = dao.insertar(a);
+            assertTrue(result);
+            assertEquals(123, a.getNumero_expediente());
+            verify(mockPs).setDate(eq(4), eq(Date.valueOf(a.getFecha_fin_estimada()))); // Verifica fecha fin NO nula
+        }
+    }
 
-        assertTrue(result);
-        assertEquals(123, a.getNumero_expediente());
+    @Test
+    void insertar_devuelveTrue_y_manejaFechaFinNull() throws Exception {
+        try (MockedStatic<ConexionBBDD> conexionMockStatic = mockStatic(ConexionBBDD.class)) {
+            conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(mockConn);
 
-        verify(ps).setDate(eq(1), any(Date.class));
-        verify(ps).setInt(eq(2), eq(a.getTiempo_meses()));
-        verify(ps).setInt(eq(3), eq(a.getTiempo_dias()));
-        verify(ps).setBigDecimal(eq(5), eq(a.getPrecio_total_estimado()));
-        verify(ps).setInt(eq(6), eq(a.getId_cliente()));
-        verify(ps).setInt(eq(7), eq(a.getId_vivienda()));
-        verify(ps).setInt(eq(8), eq(a.getId_estado_cobro()));
-        verify(ps).executeUpdate();
-        verify(ps).getGeneratedKeys();
-        verify(rsGen).next();
-        verify(rsGen).getInt(1);
-        // resources closed by try-with-resources in production code, Mockito doesn't check closes here
+            when(mockConn.prepareStatement(anyString(), eq(Statement.RETURN_GENERATED_KEYS))).thenReturn(mockPs);
+            when(mockPs.executeUpdate()).thenReturn(1);
+            when(mockPs.getGeneratedKeys()).thenReturn(mockRsGen);
+            when(mockRsGen.next()).thenReturn(true);
+            when(mockRsGen.getInt(1)).thenReturn(124);
+
+            Alquiler a = createAlquilerBase();
+            a.setFecha_fin_estimada(null); // Establece a NULL
+            boolean result = dao.insertar(a);
+
+            assertTrue(result);
+            assertEquals(124, a.getNumero_expediente());
+            verify(mockPs).setNull(eq(4), eq(Types.DATE)); // Verifica setNull
+        }
     }
 
     @Test
     void insertar_devuelveFalse_siExecuteUpdateCero() throws Exception {
-        Connection conn = mock(Connection.class);
-        PreparedStatement ps = mock(PreparedStatement.class);
+        try (MockedStatic<ConexionBBDD> conexionMockStatic = mockStatic(ConexionBBDD.class)) {
+            conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(mockConn);
 
-        when(conn.prepareStatement(anyString(), eq(Statement.RETURN_GENERATED_KEYS))).thenReturn(ps);
-        when(ps.executeUpdate()).thenReturn(0); // no filas afectadas
+            when(mockConn.prepareStatement(anyString(), eq(Statement.RETURN_GENERATED_KEYS))).thenReturn(mockPs);
+            when(mockPs.executeUpdate()).thenReturn(0); // Cero filas afectadas
+            when(mockPs.getGeneratedKeys()).thenReturn(mockRsGen);
+            when(mockRsGen.next()).thenReturn(false); // No generated key
 
-        conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(conn);
+            Alquiler a = createAlquilerBase();
+            boolean result = dao.insertar(a);
 
-        Alquiler a = createAlquilerBase();
-        boolean result = dao.insertar(a);
-
-        assertFalse(result);
-        verify(ps).executeUpdate();
+            assertFalse(result);
+            assertEquals(0, a.getNumero_expediente()); // No se debe setear el expediente
+        }
     }
 
     @Test
-    void actualizar_devuelveTrue_siExecuteUpdatePositivo() throws Exception {
-        Connection conn = mock(Connection.class);
-        PreparedStatement ps = mock(PreparedStatement.class);
+    void insertar_devuelveFalse_siSQLException() throws Exception {
+        try (MockedStatic<ConexionBBDD> conexionMockStatic = mockStatic(ConexionBBDD.class)) {
+            conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(mockConn);
 
-        when(conn.prepareStatement(anyString())).thenReturn(ps);
-        when(ps.executeUpdate()).thenReturn(1);
+            when(mockConn.prepareStatement(anyString(), anyInt())).thenThrow(new SQLException("Simulated insert error"));
 
-        conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(conn);
+            Alquiler a = createAlquilerBase();
+            boolean result = dao.insertar(a);
 
-        Alquiler a = createAlquilerBase();
-        a.setNumero_expediente(55);
+            assertFalse(result);
+        }
+    }
 
-        boolean result = dao.actualizar(a);
+    // =========================================================================
+    // 2. ACTUALIZAR
+    // =========================================================================
 
-        assertTrue(result);
-        verify(ps).setDate(eq(1), any(Date.class));
-        verify(ps).setInt(eq(9), eq(55));
-        verify(ps).executeUpdate();
+    @Test
+    void actualizar_devuelveTrue_conFechaFin() throws Exception {
+        try (MockedStatic<ConexionBBDD> conexionMockStatic = mockStatic(ConexionBBDD.class)) {
+            conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(mockConn);
+
+            when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
+            when(mockPs.executeUpdate()).thenReturn(1);
+
+            Alquiler a = createAlquilerBase();
+            a.setNumero_expediente(55);
+
+            boolean result = dao.actualizar(a);
+
+            assertTrue(result);
+            verify(mockPs).setDate(eq(4), eq(Date.valueOf(a.getFecha_fin_estimada())));
+            verify(mockPs).setInt(eq(9), eq(55)); // Verifica el WHERE clause
+        }
+    }
+
+    @Test
+    void actualizar_devuelveTrue_y_manejaFechaFinNull() throws Exception {
+        try (MockedStatic<ConexionBBDD> conexionMockStatic = mockStatic(ConexionBBDD.class)) {
+            conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(mockConn);
+
+            when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
+            when(mockPs.executeUpdate()).thenReturn(1);
+
+            Alquiler a = createAlquilerBase();
+            a.setNumero_expediente(56);
+            a.setFecha_fin_estimada(null); // Establece a NULL
+
+            boolean result = dao.actualizar(a);
+
+            assertTrue(result);
+            verify(mockPs).setNull(eq(4), eq(Types.DATE)); // Verifica setNull
+        }
     }
 
     @Test
     void actualizar_devuelveFalse_siExecuteUpdateCero() throws Exception {
-        Connection conn = mock(Connection.class);
-        PreparedStatement ps = mock(PreparedStatement.class);
+        try (MockedStatic<ConexionBBDD> conexionMockStatic = mockStatic(ConexionBBDD.class)) {
+            conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(mockConn);
 
-        when(conn.prepareStatement(anyString())).thenReturn(ps);
-        when(ps.executeUpdate()).thenReturn(0);
+            when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
+            when(mockPs.executeUpdate()).thenReturn(0); // Cero filas afectadas
 
-        conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(conn);
+            Alquiler a = createAlquilerBase();
+            a.setNumero_expediente(66);
 
-        Alquiler a = createAlquilerBase();
-        a.setNumero_expediente(66);
+            boolean result = dao.actualizar(a);
 
-        boolean result = dao.actualizar(a);
-
-        assertFalse(result);
+            assertFalse(result);
+        }
     }
 
     @Test
+    void actualizar_devuelveFalse_siSQLException() throws Exception {
+        try (MockedStatic<ConexionBBDD> conexionMockStatic = mockStatic(ConexionBBDD.class)) {
+            conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(mockConn);
+
+            when(mockConn.prepareStatement(anyString())).thenThrow(new SQLException("Simulated update error"));
+
+            Alquiler a = createAlquilerBase();
+            boolean result = dao.actualizar(a);
+
+            assertFalse(result);
+        }
+    }
+
+    // =========================================================================
+    // 3. ELIMINAR
+    // =========================================================================
+
+    @Test
     void eliminar_devuelveTrue_siExecuteUpdatePositivo() throws Exception {
-        Connection conn = mock(Connection.class);
-        PreparedStatement ps = mock(PreparedStatement.class);
+        try (MockedStatic<ConexionBBDD> conexionMockStatic = mockStatic(ConexionBBDD.class)) {
+            conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(mockConn);
 
-        when(conn.prepareStatement(anyString())).thenReturn(ps);
-        when(ps.executeUpdate()).thenReturn(1);
+            when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
+            when(mockPs.executeUpdate()).thenReturn(1);
 
-        conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(conn);
+            boolean result = dao.eliminar(10);
 
-        boolean result = dao.eliminar(10);
-
-        assertTrue(result);
-        verify(ps).setInt(1, 10);
-        verify(ps).executeUpdate();
+            assertTrue(result);
+            verify(mockPs).setInt(1, 10);
+            verify(mockPs).executeUpdate();
+        }
     }
 
     @Test
     void eliminar_devuelveFalse_siSQLException() throws Exception {
-        Connection conn = mock(Connection.class);
-        PreparedStatement ps = mock(PreparedStatement.class);
+        try (MockedStatic<ConexionBBDD> conexionMockStatic = mockStatic(ConexionBBDD.class)) {
+            conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(mockConn);
 
-        when(conn.prepareStatement(anyString())).thenReturn(ps);
-        when(ps.executeUpdate()).thenThrow(new SQLException("boom"));
+            when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
+            when(mockPs.executeUpdate()).thenThrow(new SQLException("Simulated delete error"));
 
-        conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(conn);
+            boolean result = dao.eliminar(11);
 
-        boolean result = dao.eliminar(11);
-
-        assertFalse(result);
+            assertFalse(result);
+        }
     }
+
+    // =========================================================================
+    // 4. OBTENER POR ID
+    // =========================================================================
 
     @Test
     void obtenerPorId_devuelveAlquiler_siResultSetTieneFila() throws Exception {
-        Connection conn = mock(Connection.class);
-        PreparedStatement ps = mock(PreparedStatement.class);
-        ResultSet rs = mock(ResultSet.class);
+        try (MockedStatic<ConexionBBDD> conexionMockStatic = mockStatic(ConexionBBDD.class)) {
+            conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(mockConn);
 
-        when(conn.prepareStatement(anyString())).thenReturn(ps);
-        when(ps.executeQuery()).thenReturn(rs);
+            when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
+            when(mockPs.executeQuery()).thenReturn(mockRs);
+            when(mockRs.next()).thenReturn(true, false); // Una fila
 
-        // Simular fila en rs
-        when(rs.next()).thenReturn(true);
-        when(rs.getInt("numero_expediente")).thenReturn(42);
-        when(rs.getDate("fecha_inicio")).thenReturn(Date.valueOf(LocalDate.of(2024,1,1)));
-        when(rs.getInt("tiempo_meses")).thenReturn(2);
-        when(rs.getInt("tiempo_dias")).thenReturn(5);
-        when(rs.getDate("fecha_fin_estimada")).thenReturn(Date.valueOf(LocalDate.of(2024,3,6)));
-        when(rs.getBigDecimal("precio_total_estimado")).thenReturn(new BigDecimal("1000.00"));
-        when(rs.getInt("id_cliente")).thenReturn(7);
-        when(rs.getInt("id_vivienda")).thenReturn(8);
-        when(rs.getInt("id_estado_cobro")).thenReturn(1);
+            LocalDate fechaInicio = LocalDate.of(2024, 1, 1);
+            LocalDate fechaFin = LocalDate.of(2024, 3, 6);
+            BigDecimal precio = new BigDecimal("1000.00");
 
-        conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(conn);
+            mockResultadoAlquiler(mockRs, 42, fechaInicio, fechaFin, precio, 7, 8, 1);
 
-        Alquiler a = dao.obtenerPorId(42);
+            Alquiler a = dao.obtenerPorId(42);
 
-        assertNotNull(a);
-        assertEquals(42, a.getNumero_expediente());
-        assertEquals(LocalDate.of(2024,1,1), a.getFecha_inicio());
-        assertEquals(2, a.getTiempo_meses());
-        assertEquals(5, a.getTiempo_dias());
-        assertEquals(LocalDate.of(2024,3,6), a.getFecha_fin_estimada());
-        assertEquals(new BigDecimal("1000.00"), a.getPrecio_total_estimado());
-        assertEquals(7, a.getId_cliente());
-        assertEquals(8, a.getId_vivienda());
-        assertEquals(1, a.getId_estado_cobro());
-
-        verify(ps).setInt(1, 42);
-        verify(ps).executeQuery();
+            assertNotNull(a);
+            assertEquals(42, a.getNumero_expediente());
+            assertEquals(fechaFin, a.getFecha_fin_estimada());
+            verify(mockPs).setInt(1, 42);
+        }
     }
 
     @Test
     void obtenerPorId_devuelveNull_siNoHayFilas() throws Exception {
-        Connection conn = mock(Connection.class);
-        PreparedStatement ps = mock(PreparedStatement.class);
-        ResultSet rs = mock(ResultSet.class);
+        try (MockedStatic<ConexionBBDD> conexionMockStatic = mockStatic(ConexionBBDD.class)) {
+            conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(mockConn);
 
-        when(conn.prepareStatement(anyString())).thenReturn(ps);
-        when(ps.executeQuery()).thenReturn(rs);
-        when(rs.next()).thenReturn(false);
+            when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
+            when(mockPs.executeQuery()).thenReturn(mockRs);
+            when(mockRs.next()).thenReturn(false);
 
-        conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(conn);
-
-        Alquiler a = dao.obtenerPorId(999);
-        assertNull(a);
+            Alquiler a = dao.obtenerPorId(999);
+            assertNull(a);
+        }
     }
+
+    @Test
+    void obtenerPorId_devuelveNull_siSQLException() throws Exception {
+        try (MockedStatic<ConexionBBDD> conexionMockStatic = mockStatic(ConexionBBDD.class)) {
+            conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(mockConn);
+
+            when(mockConn.prepareStatement(anyString())).thenThrow(new SQLException("Simulated select error"));
+
+            Alquiler a = dao.obtenerPorId(1);
+            assertNull(a);
+        }
+    }
+    
+    // =========================================================================
+    // 5. OBTENER TODOS
+    // =========================================================================
 
     @Test
     void obtenerTodos_devuelveLista_conVariasFilas() throws Exception {
-        Connection conn = mock(Connection.class);
-        Statement stmt = mock(Statement.class);
-        ResultSet rs = mock(ResultSet.class);
+        try (MockedStatic<ConexionBBDD> conexionMockStatic = mockStatic(ConexionBBDD.class)) {
+            conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(mockConn);
 
-        when(conn.createStatement()).thenReturn(stmt);
-        when(stmt.executeQuery(anyString())).thenReturn(rs);
+            when(mockConn.createStatement()).thenReturn(mockStatement);
+            when(mockStatement.executeQuery(anyString())).thenReturn(mockRs);
 
-        // Simular dos filas
-        when(rs.next()).thenReturn(true, true, false);
+            // Simular dos filas
+            when(mockRs.next()).thenReturn(true, true, false);
 
-        // Primera fila
-        when(rs.getInt("numero_expediente")).thenReturn(1, 2); // iteración 1 -> 1, iteración 2 -> 2
-        when(rs.getDate("fecha_inicio")).thenReturn(Date.valueOf(LocalDate.of(2024,1,1)));
-        when(rs.getInt("tiempo_meses")).thenReturn(1);
-        when(rs.getInt("tiempo_dias")).thenReturn(0);
-        when(rs.getDate("fecha_fin_estimada")).thenReturn(Date.valueOf(LocalDate.of(2024,2,1)));
-        when(rs.getBigDecimal("precio_total_estimado")).thenReturn(new BigDecimal("300.00"));
-        when(rs.getInt("id_cliente")).thenReturn(2);
-        when(rs.getInt("id_vivienda")).thenReturn(3);
-        when(rs.getInt("id_estado_cobro")).thenReturn(1);
+            LocalDate fecha1 = LocalDate.of(2024, 1, 1);
+            LocalDate fecha2 = LocalDate.of(2024, 2, 1);
+            BigDecimal precio1 = new BigDecimal("300.00");
+            BigDecimal precio2 = new BigDecimal("400.00");
 
-        conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(conn);
+            // Configurar el comportamiento secuencial para las dos filas
+            when(mockRs.getInt("numero_expediente")).thenReturn(1, 2);
+            when(mockRs.getDate("fecha_inicio")).thenReturn(Date.valueOf(fecha1), Date.valueOf(fecha2));
+            when(mockRs.getInt("tiempo_meses")).thenReturn(1, 2);
+            when(mockRs.getInt("tiempo_dias")).thenReturn(0, 0);
+            when(mockRs.getDate("fecha_fin_estimada")).thenReturn(Date.valueOf(fecha1.plusMonths(1)), Date.valueOf(fecha2.plusMonths(2)));
+            when(mockRs.getBigDecimal("precio_total_estimado")).thenReturn(precio1, precio2);
+            when(mockRs.getInt("id_cliente")).thenReturn(10, 20);
+            when(mockRs.getInt("id_vivienda")).thenReturn(3, 4);
+            when(mockRs.getInt("id_estado_cobro")).thenReturn(1, 1);
 
-        List<Alquiler> lista = dao.obtenerTodos();
+            List<Alquiler> lista = dao.obtenerTodos();
 
-        assertNotNull(lista);
-        assertEquals(2, lista.size());
+            assertNotNull(lista);
+            assertEquals(2, lista.size());
+            assertEquals(2, lista.get(1).getNumero_expediente());
+        }
     }
+    
+    @Test
+    void obtenerTodos_devuelveListaVacia_siSQLException() throws Exception {
+        try (MockedStatic<ConexionBBDD> conexionMockStatic = mockStatic(ConexionBBDD.class)) {
+            conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(mockConn);
+
+            when(mockConn.createStatement()).thenThrow(new SQLException("Simulated statement error"));
+
+            List<Alquiler> lista = dao.obtenerTodos();
+
+            assertNotNull(lista);
+            assertTrue(lista.isEmpty());
+        }
+    }
+
+    // =========================================================================
+    // 6. OBTENER POR CLIENTE/VIVIENDA/RANGO FECHAS/ESTADO
+    // =========================================================================
 
     @Test
     void obtenerPorCliente_devuelveListaSegunResultado() throws Exception {
-        Connection conn = mock(Connection.class);
-        PreparedStatement ps = mock(PreparedStatement.class);
-        ResultSet rs = mock(ResultSet.class);
+        try (MockedStatic<ConexionBBDD> conexionMockStatic = mockStatic(ConexionBBDD.class)) {
+            conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(mockConn);
 
-        when(conn.prepareStatement(anyString())).thenReturn(ps);
-        when(ps.executeQuery()).thenReturn(rs);
+            when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
+            when(mockPs.executeQuery()).thenReturn(mockRs);
+            when(mockRs.next()).thenReturn(true, false);
+            
+            mockResultadoAlquiler(mockRs, 77, LocalDate.of(2024, 6, 1), LocalDate.of(2024, 6, 11), new BigDecimal("100.00"), 99, 88, 1);
 
-        when(rs.next()).thenReturn(true, false);
-        when(rs.getInt("numero_expediente")).thenReturn(77);
-        when(rs.getDate("fecha_inicio")).thenReturn(Date.valueOf(LocalDate.of(2024,6,1)));
-        when(rs.getInt("tiempo_meses")).thenReturn(0);
-        when(rs.getInt("tiempo_dias")).thenReturn(10);
-        when(rs.getDate("fecha_fin_estimada")).thenReturn(Date.valueOf(LocalDate.of(2024,6,11)));
-        when(rs.getBigDecimal("precio_total_estimado")).thenReturn(new BigDecimal("100.00"));
-        when(rs.getInt("id_cliente")).thenReturn(99);
-        when(rs.getInt("id_vivienda")).thenReturn(88);
-        when(rs.getInt("id_estado_cobro")).thenReturn(1);
+            List<Alquiler> lista = dao.obtenerPorCliente(99);
 
-        conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(conn);
-
-        List<Alquiler> lista = dao.obtenerPorCliente(99);
-
-        assertNotNull(lista);
-        assertEquals(1, lista.size());
-        assertEquals(77, lista.get(0).getNumero_expediente());
+            assertNotNull(lista);
+            assertEquals(1, lista.size());
+            verify(mockPs).setInt(1, 99);
+        }
     }
+    
+    @Test
+    void obtenerPorVivienda_devuelveListaSegunResultado() throws Exception {
+        try (MockedStatic<ConexionBBDD> conexionMockStatic = mockStatic(ConexionBBDD.class)) {
+            conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(mockConn);
 
+            when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
+            when(mockPs.executeQuery()).thenReturn(mockRs);
+            when(mockRs.next()).thenReturn(true, false);
+            
+            mockResultadoAlquiler(mockRs, 77, LocalDate.of(2024, 6, 1), LocalDate.of(2024, 6, 11), new BigDecimal("100.00"), 99, 88, 1);
+
+            List<Alquiler> lista = dao.obtenerPorVivienda(88);
+
+            assertNotNull(lista);
+            assertEquals(1, lista.size());
+            verify(mockPs).setInt(1, 88);
+        }
+    }
+    
     @Test
     void obtenerPorRangoFechas_convierteLocalDate_aSqlDate_yDevuelveLista() throws Exception {
-        Connection conn = mock(Connection.class);
-        PreparedStatement ps = mock(PreparedStatement.class);
-        ResultSet rs = mock(ResultSet.class);
+        try (MockedStatic<ConexionBBDD> conexionMockStatic = mockStatic(ConexionBBDD.class)) {
+            conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(mockConn);
 
-        when(conn.prepareStatement(anyString())).thenReturn(ps);
-        when(ps.executeQuery()).thenReturn(rs);
+            when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
+            when(mockPs.executeQuery()).thenReturn(mockRs);
+            when(mockRs.next()).thenReturn(true, false);
+            
+            mockResultadoAlquiler(mockRs, 101, LocalDate.of(2024, 7, 1), LocalDate.of(2024, 7, 6), new BigDecimal("200.00"), 55, 44, 1);
 
-        when(rs.next()).thenReturn(true, false);
-        when(rs.getInt("numero_expediente")).thenReturn(101);
-        when(rs.getDate("fecha_inicio")).thenReturn(Date.valueOf(LocalDate.of(2024,7,1)));
-        when(rs.getInt("tiempo_meses")).thenReturn(0);
-        when(rs.getInt("tiempo_dias")).thenReturn(5);
-        when(rs.getDate("fecha_fin_estimada")).thenReturn(Date.valueOf(LocalDate.of(2024,7,6)));
-        when(rs.getBigDecimal("precio_total_estimado")).thenReturn(new BigDecimal("200.00"));
-        when(rs.getInt("id_cliente")).thenReturn(55);
-        when(rs.getInt("id_vivienda")).thenReturn(44);
-        when(rs.getInt("id_estado_cobro")).thenReturn(1);
-
-        conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(conn);
-
-        List<Alquiler> lista = dao.obtenerPorRangoFechas(LocalDate.of(2024,7,1), LocalDate.of(2024,7,31));
-        assertNotNull(lista);
-        assertEquals(1, lista.size());
-        verify(ps).setDate(eq(1), eq(Date.valueOf(LocalDate.of(2024,7,1))));
-        verify(ps).setDate(eq(2), eq(Date.valueOf(LocalDate.of(2024,7,31))));
+            LocalDate desde = LocalDate.of(2024, 7, 1);
+            LocalDate hasta = LocalDate.of(2024, 7, 31);
+            
+            List<Alquiler> lista = dao.obtenerPorRangoFechas(desde, hasta);
+            
+            assertNotNull(lista);
+            assertEquals(1, lista.size());
+            verify(mockPs).setDate(eq(1), eq(Date.valueOf(desde)));
+            verify(mockPs).setDate(eq(2), eq(Date.valueOf(hasta)));
+        }
     }
-
+    
     @Test
     void obtenerPorEstado_devuelveListaSegunId() throws Exception {
-        Connection conn = mock(Connection.class);
-        PreparedStatement ps = mock(PreparedStatement.class);
-        ResultSet rs = mock(ResultSet.class);
+        try (MockedStatic<ConexionBBDD> conexionMockStatic = mockStatic(ConexionBBDD.class)) {
+            conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(mockConn);
 
-        when(conn.prepareStatement(anyString())).thenReturn(ps);
-        when(ps.executeQuery()).thenReturn(rs);
+            when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
+            when(mockPs.executeQuery()).thenReturn(mockRs);
+            when(mockRs.next()).thenReturn(true, false);
+            
+            mockResultadoAlquiler(mockRs, 201, LocalDate.of(2024, 8, 1), LocalDate.of(2024, 8, 21), new BigDecimal("400.00"), 11, 22, 2);
 
-        when(rs.next()).thenReturn(true, false);
-        when(rs.getInt("numero_expediente")).thenReturn(201);
-        when(rs.getDate("fecha_inicio")).thenReturn(Date.valueOf(LocalDate.of(2024,8,1)));
-        when(rs.getInt("tiempo_meses")).thenReturn(0);
-        when(rs.getInt("tiempo_dias")).thenReturn(20);
-        when(rs.getDate("fecha_fin_estimada")).thenReturn(Date.valueOf(LocalDate.of(2024,8,21)));
-        when(rs.getBigDecimal("precio_total_estimado")).thenReturn(new BigDecimal("400.00"));
-        when(rs.getInt("id_cliente")).thenReturn(11);
-        when(rs.getInt("id_vivienda")).thenReturn(22);
-        when(rs.getInt("id_estado_cobro")).thenReturn(2);
-
-        conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(conn);
-
-        List<Alquiler> lista = dao.obtenerPorEstado(2);
-        assertNotNull(lista);
-        assertEquals(1, lista.size());
+            List<Alquiler> lista = dao.obtenerPorEstado(2);
+            
+            assertNotNull(lista);
+            assertEquals(1, lista.size());
+            verify(mockPs).setInt(1, 2);
+        }
     }
+    
+    // Cobertura de las ramas de SQLException en todos los métodos de consulta
+    @Test
+    void obtenerPorCliente_devuelveListaVacia_siSQLException() throws Exception {
+        try (MockedStatic<ConexionBBDD> conexionMockStatic = mockStatic(ConexionBBDD.class)) {
+            conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(mockConn);
+
+            when(mockConn.prepareStatement(anyString())).thenThrow(new SQLException("Simulated client select error"));
+
+            List<Alquiler> lista = dao.obtenerPorCliente(99);
+
+            assertTrue(lista.isEmpty());
+        }
+    }
+
+    // =========================================================================
+    // 7. OBTENER POR ESTADO NOMBRE (Pendientes y Pagados)
+    // =========================================================================
 
     @Test
-    void obtenerPendientesPago_usaConsultaPorNombreEstado_yDevuelveLista() throws Exception {
-        // cubrir obtenerPorEstadoNombre("pendiente")
-        Connection conn = mock(Connection.class);
-        PreparedStatement ps = mock(PreparedStatement.class);
-        ResultSet rs = mock(ResultSet.class);
+    void obtenerPendientesPago_llamaAEstadoNombre_conPendiente() throws Exception {
+        try (MockedStatic<ConexionBBDD> conexionMockStatic = mockStatic(ConexionBBDD.class)) {
+            conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(mockConn);
 
-        when(conn.prepareStatement(anyString())).thenReturn(ps);
-        when(ps.executeQuery()).thenReturn(rs);
+            when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
+            when(mockPs.executeQuery()).thenReturn(mockRs);
+            when(mockRs.next()).thenReturn(true, false);
+            
+            // Mockeamos la fila con un estado (aunque la consulta SQL usa el JOIN)
+            mockResultadoAlquiler(mockRs, 301, LocalDate.of(2024, 9, 1), LocalDate.of(2024, 9, 2), new BigDecimal("50.00"), 7, 8, 3);
 
-        when(rs.next()).thenReturn(true, false);
-        when(rs.getInt("numero_expediente")).thenReturn(301);
-        when(rs.getDate("fecha_inicio")).thenReturn(Date.valueOf(LocalDate.of(2024,9,1)));
-        when(rs.getInt("tiempo_meses")).thenReturn(0);
-        when(rs.getInt("tiempo_dias")).thenReturn(1);
-        when(rs.getDate("fecha_fin_estimada")).thenReturn(Date.valueOf(LocalDate.of(2024,9,2)));
-        when(rs.getBigDecimal("precio_total_estimado")).thenReturn(new BigDecimal("50.00"));
-        when(rs.getInt("id_cliente")).thenReturn(7);
-        when(rs.getInt("id_vivienda")).thenReturn(8);
-        when(rs.getInt("id_estado_cobro")).thenReturn(3);
-
-        conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(conn);
-
-        List<Alquiler> lista = dao.obtenerPendientesPago();
-        assertNotNull(lista);
-        assertEquals(1, lista.size());
-
-        verify(ps).setString(1, "pendiente");
-        verify(ps).executeQuery();
+            List<Alquiler> lista = dao.obtenerPendientesPago();
+            
+            assertNotNull(lista);
+            assertEquals(1, lista.size());
+            verify(mockPs).setString(1, "pendiente");
+        }
     }
+    
+    @Test
+    void obtenerPagados_llamaAEstadoNombre_conPagado() throws Exception {
+        try (MockedStatic<ConexionBBDD> conexionMockStatic = mockStatic(ConexionBBDD.class)) {
+            conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(mockConn);
+
+            when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
+            when(mockPs.executeQuery()).thenReturn(mockRs);
+            when(mockRs.next()).thenReturn(true, false);
+            
+            mockResultadoAlquiler(mockRs, 302, LocalDate.of(2024, 10, 1), LocalDate.of(2024, 11, 1), new BigDecimal("600.00"), 1, 2, 2);
+
+            List<Alquiler> lista = dao.obtenerPagados();
+            
+            assertNotNull(lista);
+            assertEquals(1, lista.size());
+            verify(mockPs).setString(1, "pagado");
+        }
+    }
+
+    // =========================================================================
+    // 8. OBTENER ALQUILER ACTIVO POR VIVIENDA
+    // =========================================================================
 
     @Test
     void obtenerAlquilerActivoPorVivienda_devuelveAlquiler_siHayFila() throws Exception {
-        Connection conn = mock(Connection.class);
-        PreparedStatement ps = mock(PreparedStatement.class);
-        ResultSet rs = mock(ResultSet.class);
+        try (MockedStatic<ConexionBBDD> conexionMockStatic = mockStatic(ConexionBBDD.class)) {
+            conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(mockConn);
 
-        when(conn.prepareStatement(anyString())).thenReturn(ps);
-        when(ps.executeQuery()).thenReturn(rs);
+            when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
+            when(mockPs.executeQuery()).thenReturn(mockRs);
+            when(mockRs.next()).thenReturn(true, false);
+            
+            // Usamos id_estado_cobro 1 (asumimos que es 'pendiente' o 'retrasado' según la lógica del SQL)
+            mockResultadoAlquiler(mockRs, 401, LocalDate.of(2024, 11, 1), LocalDate.of(2024, 12, 1), new BigDecimal("800.00"), 3, 50, 1);
 
-        when(rs.next()).thenReturn(true);
-        when(rs.getInt("numero_expediente")).thenReturn(401);
-        when(rs.getDate("fecha_inicio")).thenReturn(Date.valueOf(LocalDate.of(2024,10,1)));
-        when(rs.getInt("tiempo_meses")).thenReturn(0);
-        when(rs.getInt("tiempo_dias")).thenReturn(3);
-        when(rs.getDate("fecha_fin_estimada")).thenReturn(Date.valueOf(LocalDate.of(2024,10,4)));
-        when(rs.getBigDecimal("precio_total_estimado")).thenReturn(new BigDecimal("120.00"));
-        when(rs.getInt("id_cliente")).thenReturn(9);
-        when(rs.getInt("id_vivienda")).thenReturn(77);
-        when(rs.getInt("id_estado_cobro")).thenReturn(1);
-
-        conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(conn);
-
-        Alquiler a = dao.obtenerAlquilerActivoPorVivienda(77);
-        assertNotNull(a);
-        assertEquals(401, a.getNumero_expediente());
-        verify(ps).setInt(1, 77);
+            Alquiler a = dao.obtenerAlquilerActivoPorVivienda(50);
+            
+            assertNotNull(a);
+            assertEquals(401, a.getNumero_expediente());
+            assertEquals(50, a.getId_vivienda());
+            verify(mockPs).setInt(1, 50);
+        }
     }
 
     @Test
-    void obtenerAlquilerActivoPorVivienda_devuelveNull_siNoHayFilas() throws Exception {
-        Connection conn = mock(Connection.class);
-        PreparedStatement ps = mock(PreparedStatement.class);
-        ResultSet rs = mock(ResultSet.class);
+    void obtenerAlquilerActivoPorVivienda_devuelveNull_siNoHayFila() throws Exception {
+        try (MockedStatic<ConexionBBDD> conexionMockStatic = mockStatic(ConexionBBDD.class)) {
+            conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(mockConn);
 
-        when(conn.prepareStatement(anyString())).thenReturn(ps);
-        when(ps.executeQuery()).thenReturn(rs);
-        when(rs.next()).thenReturn(false);
+            when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
+            when(mockPs.executeQuery()).thenReturn(mockRs);
+            when(mockRs.next()).thenReturn(false);
 
-        conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(conn);
+            Alquiler a = dao.obtenerAlquilerActivoPorVivienda(999);
+            assertNull(a);
+        }
+    }
+    
+    @Test
+    void obtenerAlquilerActivoPorVivienda_devuelveNull_siSQLException() throws Exception {
+        try (MockedStatic<ConexionBBDD> conexionMockStatic = mockStatic(ConexionBBDD.class)) {
+            conexionMockStatic.when(ConexionBBDD::conectar).thenReturn(mockConn);
 
-        Alquiler a = dao.obtenerAlquilerActivoPorVivienda(9999);
-        assertNull(a);
+            when(mockConn.prepareStatement(anyString())).thenThrow(new SQLException("Simulated active select error"));
+
+            Alquiler a = dao.obtenerAlquilerActivoPorVivienda(10);
+            assertNull(a);
+        }
     }
 }

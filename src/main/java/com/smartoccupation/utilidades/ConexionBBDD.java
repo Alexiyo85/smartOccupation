@@ -192,4 +192,16 @@ public class ConexionBBDD {
                     JOptionPane.ERROR_MESSAGE);
         }
     }
+    
+    /**
+     * Método público para llamar a insertarEstadosCobroIniciales desde tests.
+     * @param conn Conexión a la base de datos.
+     */
+    public static void insertarEstadosInicialesPublic(Connection conn) {
+        ConexionBBDD.insertarEstadosCobroIniciales(conn);
+    }
+    
+    
+    
+    
 }

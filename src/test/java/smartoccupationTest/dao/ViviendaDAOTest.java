@@ -3,7 +3,7 @@ package smartoccupationTest.dao;
 import com.smartoccupation.dao.ViviendaDAO;
 import com.smartoccupation.modelo.Vivienda;
 import com.smartoccupation.utilidades.ConexionBBDD;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
 import java.math.BigDecimal;
@@ -11,268 +11,247 @@ import java.sql.*;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class ViviendaDAOTest {
 
-    private ViviendaDAO viviendaDAO;
+    private ViviendaDAO dao = new ViviendaDAO();
 
-    private Connection mockConn;
-    private PreparedStatement mockPs;
-    private Statement mockStatement;
-    private ResultSet mockRs;
+    private Connection mockConn = mock(Connection.class);
+    private PreparedStatement mockPs = mock(PreparedStatement.class);
+    private Statement mockStatement = mock(Statement.class);
+    private ResultSet mockRs = mock(ResultSet.class);
+    private ResultSet mockRsGen = mock(ResultSet.class);
 
-    private MockedStatic<ConexionBBDD> conexionMock;
-
-    @BeforeEach
-    void setUp() throws Exception {
-        viviendaDAO = new ViviendaDAO();
-
-        mockConn = mock(Connection.class);
-        mockPs = mock(PreparedStatement.class);
-        mockStatement = mock(Statement.class);
-        mockRs = mock(ResultSet.class);
-
-        conexionMock = mockStatic(ConexionBBDD.class);
-        conexionMock.when(ConexionBBDD::conectar).thenReturn(mockConn);
-    }
-
-    @AfterEach
-    void tearDown() {
-        conexionMock.close();
-    }
-
-    // ------------------------------------------------------------------
-    // INSERTAR
-    // ------------------------------------------------------------------
+    // =========================================================================
+    // 1. INSERTAR
+    // =========================================================================
     @Test
-    void testInsertar_exito() throws Exception {
-        Vivienda v = crearVivienda();
+    void insertar_devuelveTrue_y_seteaIdVivienda() throws Exception {
+        try (MockedStatic<ConexionBBDD> conexionMock = mockStatic(ConexionBBDD.class)) {
+            conexionMock.when(ConexionBBDD::conectar).thenReturn(mockConn);
 
-        when(mockConn.prepareStatement(anyString(), eq(Statement.RETURN_GENERATED_KEYS)))
-                .thenReturn(mockPs);
+            when(mockConn.prepareStatement(anyString(), eq(Statement.RETURN_GENERATED_KEYS)))
+                    .thenReturn(mockPs);
+            when(mockPs.executeUpdate()).thenReturn(1);
+            when(mockPs.getGeneratedKeys()).thenReturn(mockRsGen);
+            when(mockRsGen.next()).thenReturn(true);
+            when(mockRsGen.getInt(1)).thenReturn(99);
 
-        when(mockPs.executeUpdate()).thenReturn(1);
+            Vivienda v = crearVivienda();
+            boolean result = dao.insertar(v);
 
-        when(mockPs.getGeneratedKeys()).thenReturn(mockRs);
-        when(mockRs.next()).thenReturn(true);
-        when(mockRs.getInt(1)).thenReturn(99);
-
-        boolean resultado = viviendaDAO.insertar(v);
-
-        assertTrue(resultado);
-        assertEquals(99, v.getId_vivienda());
-        verify(mockPs).executeUpdate();
+            assertTrue(result);
+            assertEquals(99, v.getId_vivienda());
+            verify(mockPs).executeUpdate();
+        }
     }
 
     @Test
-    void testInsertar_errorSQLException() throws Exception {
-        Vivienda v = crearVivienda();
+    void insertar_devuelveFalse_siSQLException() throws Exception {
+        try (MockedStatic<ConexionBBDD> conexionMock = mockStatic(ConexionBBDD.class)) {
+            conexionMock.when(ConexionBBDD::conectar).thenReturn(mockConn);
+            when(mockConn.prepareStatement(anyString(), anyInt()))
+                    .thenThrow(new SQLException("Simulado"));
 
-        when(mockConn.prepareStatement(anyString(), anyInt()))
-                .thenThrow(new SQLException("Simulado"));
+            Vivienda v = crearVivienda();
+            boolean result = dao.insertar(v);
 
-        boolean resultado = viviendaDAO.insertar(v);
-
-        assertFalse(resultado);
+            assertFalse(result);
+        }
     }
 
-    // ------------------------------------------------------------------
-    // ACTUALIZAR
-    // ------------------------------------------------------------------
+    // =========================================================================
+    // 2. ACTUALIZAR
+    // =========================================================================
     @Test
-    void testActualizar_exito() throws Exception {
-        Vivienda v = crearVivienda();
-        v.setId_vivienda(10);
+    void actualizar_devuelveTrue_siExecuteUpdatePositivo() throws Exception {
+        try (MockedStatic<ConexionBBDD> conexionMock = mockStatic(ConexionBBDD.class)) {
+            conexionMock.when(ConexionBBDD::conectar).thenReturn(mockConn);
 
-        when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
-        when(mockPs.executeUpdate()).thenReturn(1);
+            when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
+            when(mockPs.executeUpdate()).thenReturn(1);
 
-        boolean resultado = viviendaDAO.actualizar(v);
+            Vivienda v = crearVivienda();
+            v.setId_vivienda(10);
 
-        assertTrue(resultado);
-        verify(mockPs).executeUpdate();
-    }
-
-    @Test
-    void testActualizar_errorSQLException() throws Exception {
-        Vivienda v = crearVivienda();
-
-        when(mockConn.prepareStatement(anyString()))
-                .thenThrow(new SQLException("Simulado"));
-
-        boolean resultado = viviendaDAO.actualizar(v);
-
-        assertFalse(resultado);
-    }
-
-    // ------------------------------------------------------------------
-    // ELIMINAR
-    // ------------------------------------------------------------------
-    @Test
-    void testEliminar_exito() throws Exception {
-        when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
-        when(mockPs.executeUpdate()).thenReturn(1);
-
-        boolean resultado = viviendaDAO.eliminar(5);
-
-        assertTrue(resultado);
+            boolean result = dao.actualizar(v);
+            assertTrue(result);
+            verify(mockPs).executeUpdate();
+        }
     }
 
     @Test
-    void testEliminar_errorSQLException() throws Exception {
-        when(mockConn.prepareStatement(anyString()))
-                .thenThrow(new SQLException("Simulado"));
+    void actualizar_devuelveFalse_siSQLException() throws Exception {
+        try (MockedStatic<ConexionBBDD> conexionMock = mockStatic(ConexionBBDD.class)) {
+            conexionMock.when(ConexionBBDD::conectar).thenReturn(mockConn);
+            when(mockConn.prepareStatement(anyString())).thenThrow(new SQLException("Simulado"));
 
-        boolean resultado = viviendaDAO.eliminar(5);
-
-        assertFalse(resultado);
+            Vivienda v = crearVivienda();
+            boolean result = dao.actualizar(v);
+            assertFalse(result);
+        }
     }
 
-    // ------------------------------------------------------------------
-    // OBTENER POR ID
-    // ------------------------------------------------------------------
+    // =========================================================================
+    // 3. ELIMINAR
+    // =========================================================================
     @Test
-    void testObtenerPorId_encontrado() throws Exception {
-        when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
-        when(mockPs.executeQuery()).thenReturn(mockRs);
+    void eliminar_devuelveTrue_siExecuteUpdatePositivo() throws Exception {
+        try (MockedStatic<ConexionBBDD> conexionMock = mockStatic(ConexionBBDD.class)) {
+            conexionMock.when(ConexionBBDD::conectar).thenReturn(mockConn);
+            when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
+            when(mockPs.executeUpdate()).thenReturn(1);
 
-        mockearViviendaUnica();
-
-        Vivienda v = viviendaDAO.obtenerPorId(10);
-
-        assertNotNull(v);
-        assertEquals(10, v.getId_vivienda());
-        assertEquals("REF-001", v.getCodigo_referencia());
-    }
-
-    @Test
-    void testObtenerPorId_noEncontrado() throws Exception {
-        when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
-        when(mockPs.executeQuery()).thenReturn(mockRs);
-
-        when(mockRs.next()).thenReturn(false);
-
-        Vivienda v = viviendaDAO.obtenerPorId(10);
-
-        assertNull(v);
-    }
-
-    // ------------------------------------------------------------------
-    // OBTENER TODOS
-    // ------------------------------------------------------------------
-    @Test
-    void testObtenerTodos_exito() throws Exception {
-        when(mockConn.createStatement()).thenReturn(mockStatement);
-        when(mockStatement.executeQuery(anyString())).thenReturn(mockRs);
-
-        when(mockRs.next()).thenReturn(true, true, false);
-        mockearViviendaUnica();
-        mockearViviendaUnica();
-
-        List<Vivienda> lista = viviendaDAO.obtenerTodos();
-
-        assertEquals(2, lista.size());
+            boolean result = dao.eliminar(5);
+            assertTrue(result);
+            verify(mockPs).executeUpdate();
+        }
     }
 
     @Test
-    void testObtenerTodos_errorSQLException() throws Exception {
-        when(mockConn.createStatement())
-                .thenThrow(new SQLException("Simulado"));
+    void eliminar_devuelveFalse_siSQLException() throws Exception {
+        try (MockedStatic<ConexionBBDD> conexionMock = mockStatic(ConexionBBDD.class)) {
+            conexionMock.when(ConexionBBDD::conectar).thenReturn(mockConn);
+            when(mockConn.prepareStatement(anyString())).thenThrow(new SQLException("Simulado"));
 
-        List<Vivienda> lista = viviendaDAO.obtenerTodos();
-
-        assertTrue(lista.isEmpty());
+            boolean result = dao.eliminar(5);
+            assertFalse(result);
+        }
     }
 
-    // ------------------------------------------------------------------
-    // OBTENER POR ESTADO
-    // ------------------------------------------------------------------
+    // =========================================================================
+    // 4. OBTENER POR ID
+    // =========================================================================
     @Test
-    void testObtenerPorEstado_exito() throws Exception {
-        when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
-        when(mockPs.executeQuery()).thenReturn(mockRs);
+    void obtenerPorId_devuelveVivienda_siExiste() throws Exception {
+        try (MockedStatic<ConexionBBDD> conexionMock = mockStatic(ConexionBBDD.class)) {
+            conexionMock.when(ConexionBBDD::conectar).thenReturn(mockConn);
 
-        when(mockRs.next()).thenReturn(true, false);
-        mockearViviendaUnica();
+            when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
+            when(mockPs.executeQuery()).thenReturn(mockRs);
+            when(mockRs.next()).thenReturn(true);
 
-        List<Vivienda> lista = viviendaDAO.obtenerPorEstado("LIBRE");
+            mockearVivienda(mockRs, 10, "REF-001", "disponible");
 
-        assertEquals(1, lista.size());
-        assertEquals("LIBRE", lista.get(0).getEstado());
-    }
-
-    @Test
-    void testObtenerPorEstado_errorSQLException() throws Exception {
-        when(mockConn.prepareStatement(anyString()))
-                .thenThrow(new SQLException("Simulado"));
-
-        List<Vivienda> lista = viviendaDAO.obtenerPorEstado("LIBRE");
-
-        assertTrue(lista.isEmpty());
-    }
-
-    // ------------------------------------------------------------------
-    // OBTENER POR RANGO DE PRECIO
-    // ------------------------------------------------------------------
-    @Test
-    void testObtenerPorRangoPrecio_exito() throws Exception {
-        when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
-        when(mockPs.executeQuery()).thenReturn(mockRs);
-
-        when(mockRs.next()).thenReturn(true, false);
-        mockearViviendaUnica();
-
-        List<Vivienda> lista = viviendaDAO.obtenerPorRangoPrecio(
-                new BigDecimal("400"), new BigDecimal("900"));
-
-        assertEquals(1, lista.size());
-        assertEquals(new BigDecimal("750.00"), lista.get(0).getPrecio_mensual());
+            Vivienda v = dao.obtenerPorId(10);
+            assertNotNull(v);
+            assertEquals(10, v.getId_vivienda());
+        }
     }
 
     @Test
-    void testObtenerPorRangoPrecio_errorSQLException() throws Exception {
-        when(mockConn.prepareStatement(anyString()))
-                .thenThrow(new SQLException("Simulado"));
+    void obtenerPorId_devuelveNull_siNoExiste() throws Exception {
+        try (MockedStatic<ConexionBBDD> conexionMock = mockStatic(ConexionBBDD.class)) {
+            conexionMock.when(ConexionBBDD::conectar).thenReturn(mockConn);
+            when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
+            when(mockPs.executeQuery()).thenReturn(mockRs);
+            when(mockRs.next()).thenReturn(false);
 
-        List<Vivienda> lista = viviendaDAO.obtenerPorRangoPrecio(
-                new BigDecimal("400"), new BigDecimal("900"));
-
-        assertTrue(lista.isEmpty());
+            Vivienda v = dao.obtenerPorId(99);
+            assertNull(v);
+        }
     }
 
-    // ------------------------------------------------------------------
-    // OBTENER POR CÓDIGO REFERENCIA
-    // ------------------------------------------------------------------
+    // =========================================================================
+    // 5. OBTENER TODOS
+    // =========================================================================
     @Test
-    void testObtenerPorCodigoReferencia_exito() throws Exception {
-        when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
-        when(mockPs.executeQuery()).thenReturn(mockRs);
+    void obtenerTodos_devuelveLista() throws Exception {
+        try (MockedStatic<ConexionBBDD> conexionMock = mockStatic(ConexionBBDD.class)) {
+            conexionMock.when(ConexionBBDD::conectar).thenReturn(mockConn);
 
-        mockearViviendaUnica();
+            when(mockConn.createStatement()).thenReturn(mockStatement);
+            when(mockStatement.executeQuery(anyString())).thenReturn(mockRs);
 
-        Vivienda v = viviendaDAO.obtenerPorCodigoReferencia("REF-001");
+            // Simulamos 2 filas
+            when(mockRs.next()).thenReturn(true, true, false);
 
-        assertNotNull(v);
-        assertEquals("REF-001", v.getCodigo_referencia());
+            // Valores secuenciales para cada fila
+            when(mockRs.getInt("id_vivienda")).thenReturn(1, 2);
+            when(mockRs.getString("codigo_referencia")).thenReturn("REF-001", "REF-002");
+            when(mockRs.getString("direccion")).thenReturn("Calle X", "Calle Y");
+            when(mockRs.getString("ciudad")).thenReturn("Madrid", "Barcelona");
+            when(mockRs.getString("provincia")).thenReturn("Madrid", "Barcelona");
+            when(mockRs.getString("codigo_postal")).thenReturn("28000", "08000");
+            when(mockRs.getInt("metros_cuadrados")).thenReturn(80, 100);
+            when(mockRs.getInt("numero_habitaciones")).thenReturn(3, 4);
+            when(mockRs.getInt("numero_banios")).thenReturn(2, 3);
+            when(mockRs.getBigDecimal("precio_mensual")).thenReturn(new BigDecimal("750.00"), new BigDecimal("1200.00"));
+            when(mockRs.getString("estado")).thenReturn("disponible", "ocupado");
+
+            List<Vivienda> lista = dao.obtenerTodos();
+
+            assertEquals(2, lista.size());
+            assertEquals("REF-001", lista.get(0).getCodigo_referencia());
+            assertEquals("REF-002", lista.get(1).getCodigo_referencia());
+        }
     }
 
+    // =========================================================================
+    // 6. OBTENER POR ESTADO
+    // =========================================================================
     @Test
-    void testObtenerPorCodigoReferencia_noEncontrado() throws Exception {
-        when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
-        when(mockPs.executeQuery()).thenReturn(mockRs);
+    void obtenerPorEstado_devuelveLista() throws Exception {
+        try (MockedStatic<ConexionBBDD> conexionMock = mockStatic(ConexionBBDD.class)) {
+            conexionMock.when(ConexionBBDD::conectar).thenReturn(mockConn);
 
-        when(mockRs.next()).thenReturn(false);
+            when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
+            when(mockPs.executeQuery()).thenReturn(mockRs);
 
-        Vivienda v = viviendaDAO.obtenerPorCodigoReferencia("REF-XYZ");
+            when(mockRs.next()).thenReturn(true, false);
+            mockearVivienda(mockRs, 5, "REF-005", "reservado");
 
-        assertNull(v);
+            List<Vivienda> lista = dao.obtenerPorEstado("reservado");
+            assertEquals(1, lista.size());
+            assertEquals("reservado", lista.get(0).getEstado());
+        }
     }
 
-    // ------------------------------------------------------------------
-    // MÉTODOS DE APOYO
-    // ------------------------------------------------------------------
+    // =========================================================================
+    // 7. OBTENER POR RANGO DE PRECIO
+    // =========================================================================
+    @Test
+    void obtenerPorRangoPrecio_devuelveLista() throws Exception {
+        try (MockedStatic<ConexionBBDD> conexionMock = mockStatic(ConexionBBDD.class)) {
+            conexionMock.when(ConexionBBDD::conectar).thenReturn(mockConn);
 
+            when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
+            when(mockPs.executeQuery()).thenReturn(mockRs);
+
+            when(mockRs.next()).thenReturn(true, false);
+            mockearVivienda(mockRs, 6, "REF-006", "disponible", new BigDecimal("750.00"));
+
+            List<Vivienda> lista = dao.obtenerPorRangoPrecio(new BigDecimal("400"), new BigDecimal("900"));
+            assertEquals(1, lista.size());
+            assertEquals(new BigDecimal("750.00"), lista.get(0).getPrecio_mensual());
+        }
+    }
+
+    // =========================================================================
+    // 8. OBTENER POR CÓDIGO REFERENCIA
+    // =========================================================================
+    @Test
+    void obtenerPorCodigoReferencia_devuelveVivienda() throws Exception {
+        try (MockedStatic<ConexionBBDD> conexionMock = mockStatic(ConexionBBDD.class)) {
+            conexionMock.when(ConexionBBDD::conectar).thenReturn(mockConn);
+
+            when(mockConn.prepareStatement(anyString())).thenReturn(mockPs);
+            when(mockPs.executeQuery()).thenReturn(mockRs);
+
+            when(mockRs.next()).thenReturn(true);
+            mockearVivienda(mockRs, 7, "REF-007", "ocupado");
+
+            Vivienda v = dao.obtenerPorCodigoReferencia("REF-007");
+            assertNotNull(v);
+            assertEquals("REF-007", v.getCodigo_referencia());
+        }
+    }
+
+    // =========================================================================
+    // MÉTODOS AUXILIARES
+    // =========================================================================
     private Vivienda crearVivienda() {
         Vivienda v = new Vivienda();
         v.setCodigo_referencia("REF-001");
@@ -284,23 +263,25 @@ class ViviendaDAOTest {
         v.setNumero_habitaciones(3);
         v.setNumero_banios(2);
         v.setPrecio_mensual(new BigDecimal("750.00"));
-        v.setEstado("LIBRE");
+        v.setEstado("disponible"); // Valor válido
         return v;
     }
 
-    private void mockearViviendaUnica() throws Exception {
-        when(mockRs.next()).thenReturn(true);
+    private void mockearVivienda(ResultSet rs, int id, String ref, String estado) throws SQLException {
+        mockearVivienda(rs, id, ref, estado, new BigDecimal("500.00"));
+    }
 
-        when(mockRs.getInt("id_vivienda")).thenReturn(10);
-        when(mockRs.getString("codigo_referencia")).thenReturn("REF-001");
-        when(mockRs.getString("direccion")).thenReturn("Calle Falsa 123");
-        when(mockRs.getString("ciudad")).thenReturn("Madrid");
-        when(mockRs.getString("provincia")).thenReturn("Madrid");
-        when(mockRs.getString("codigo_postal")).thenReturn("28000");
-        when(mockRs.getInt("metros_cuadrados")).thenReturn(80);
-        when(mockRs.getInt("numero_habitaciones")).thenReturn(3);
-        when(mockRs.getInt("numero_banios")).thenReturn(2);
-        when(mockRs.getBigDecimal("precio_mensual")).thenReturn(new BigDecimal("750.00"));
-        when(mockRs.getString("estado")).thenReturn("LIBRE");
+    private void mockearVivienda(ResultSet rs, int id, String ref, String estado, BigDecimal precio) throws SQLException {
+        when(rs.getInt("id_vivienda")).thenReturn(id);
+        when(rs.getString("codigo_referencia")).thenReturn(ref);
+        when(rs.getString("direccion")).thenReturn("Calle X");
+        when(rs.getString("ciudad")).thenReturn("Madrid");
+        when(rs.getString("provincia")).thenReturn("Madrid");
+        when(rs.getString("codigo_postal")).thenReturn("28000");
+        when(rs.getInt("metros_cuadrados")).thenReturn(80);
+        when(rs.getInt("numero_habitaciones")).thenReturn(3);
+        when(rs.getInt("numero_banios")).thenReturn(2);
+        when(rs.getBigDecimal("precio_mensual")).thenReturn(precio);
+        when(rs.getString("estado")).thenReturn(estado);
     }
 }
